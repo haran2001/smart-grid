@@ -1,0 +1,62 @@
+{
+  "simulation_info": {
+    "total_steps": 48,
+    "simulation_time": "2025-05-30T03:50:35.259703",
+    "duration_hours": 4.0,
+    "messages_sent": 0
+  },
+  "performance_metrics": {
+    "total_steps": 48,
+    "messages_sent": 0,
+    "market_clearings": 0,
+    "total_cost": 0.0,
+    "renewable_penetration": 0.0,
+    "grid_stability_score": 100.0
+  },
+  "final_market_data": {
+    "current_price": 29.54544172650926,
+    "price_forecast": [
+      28.043370935656565,
+      32.58795337919242,
+      25.728153020018855,
+      26.058022970267398,
+      22.38723111655579,
+      31.07434566443523,
+      33.0936781703934,
+      29.346272911464084,
+      23.471698032053318,
+      32.42849036319576,
+      33.80152337666617,
+      27.564883317309178,
+      24.61076392257784,
+      28.58673339288124,
+      32.80663841926375,
+      35.44224206841862,
+      28.777283284444863,
+      29.52953632476232,
+      31.09093341145993,
+      26.38568078068184,
+      22.783107338271602,
+      29.047292282300493,
+      32.96975852083916,
+      30.873642495035853
+    ],
+    "demand_forecast": {
+      "expected_peak": 630.2943725152286
+    },
+    "generation_forecast": {
+      "total_available": 1500.0,
+      "renewable_total": 500.0
+    },
+    "weather": {
+      "temperature": 26.946758282356626,
+      "wind_speed": 10.120003725246862,
+      "solar_irradiance": 0
+    },
+    "carbon_price": 25.0,
+    "dr_price": 100.0,
+    "frequency_hz": 50.0,
+    "voltage_pu": 1.0
+  },
+  "agent_states": {}
+}

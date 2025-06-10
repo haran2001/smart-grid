@@ -36,6 +36,8 @@ class MessageRouter:
     def register_agent(self, agent: BaseAgent) -> None:
         """Register an agent with the message router"""
         self.agents[agent.agent_id] = agent
+        # Set the message router on the agent so it can send messages
+        agent.message_router = self
         
     async def route_message(self, message: AgentMessage) -> None:
         """Route a message to its destination"""
@@ -134,7 +136,7 @@ class SmartGridSimulation:
         self.logger.info(f"Added consumer agent: {agent_id}")
         return agent
     
-    def add_grid_operator(self, agent_id: str = "grid_operator", config: Dict[str, Any] = None) -> GridOperatorAgent:
+    async def add_grid_operator(self, agent_id: str = "grid_operator", config: Dict[str, Any] = None) -> GridOperatorAgent:
         """Add the grid operator agent to the simulation"""
         self.grid_operator = GridOperatorAgent(agent_id, config)
         self.agents[agent_id] = self.grid_operator
@@ -143,15 +145,15 @@ class SmartGridSimulation:
         # Register all existing agents with the grid operator
         for existing_agent_id, agent in self.agents.items():
             if existing_agent_id != agent_id:
-                asyncio.create_task(self.grid_operator.register_agent(existing_agent_id, agent.agent_type))
+                await self.grid_operator.register_agent(existing_agent_id, agent.agent_type)
         
         self.logger.info(f"Added grid operator: {agent_id}")
         return self.grid_operator
     
-    def create_sample_scenario(self) -> None:
+    async def create_sample_scenario(self) -> None:
         """Create a sample scenario with multiple agents"""
         # Add grid operator
-        self.add_grid_operator()
+        await self.add_grid_operator()
         
         # Add generators
         self.add_generator_agent("coal_plant_1", {
@@ -402,10 +404,10 @@ class SmartGridSimulation:
 
 # Utility functions for creating specific scenarios
 
-def create_renewable_heavy_scenario() -> SmartGridSimulation:
+async def create_renewable_heavy_scenario() -> SmartGridSimulation:
     """Create a scenario with high renewable penetration"""
     sim = SmartGridSimulation()
-    sim.add_grid_operator()
+    await sim.add_grid_operator()
     
     # High renewable generation
     sim.add_generator_agent("solar_farm_1", {"max_capacity_mw": 300.0, "emissions_rate_kg_co2_per_mwh": 0.0})
@@ -426,10 +428,10 @@ def create_renewable_heavy_scenario() -> SmartGridSimulation:
     return sim
 
 
-def create_traditional_grid_scenario() -> SmartGridSimulation:
+async def create_traditional_grid_scenario() -> SmartGridSimulation:
     """Create a scenario with traditional generation mix"""
     sim = SmartGridSimulation()
-    sim.add_grid_operator()
+    await sim.add_grid_operator()
     
     # Traditional generation
     sim.add_generator_agent("coal_plant_1", {"max_capacity_mw": 400.0, "emissions_rate_kg_co2_per_mwh": 800.0})

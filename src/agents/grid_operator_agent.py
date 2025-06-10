@@ -69,6 +69,13 @@ class GridOperatorAgent(BaseAgent):
         self.market_clearing_interval_minutes = 5  # Clear market every 5 minutes
         self.last_market_clearing = datetime.now()
         
+        # Demand forecasting
+        self.demand_forecast = {
+            "expected_peak": 500.0,  # Default expected peak load
+            "hourly_pattern": [0.6, 0.55, 0.5, 0.5, 0.55, 0.7, 0.85, 0.9, 0.95, 0.9, 0.85, 0.8,
+                              0.75, 0.8, 0.85, 0.9, 0.95, 1.0, 0.95, 0.9, 0.85, 0.8, 0.75, 0.65]
+        }
+        
         # Grid stability monitoring
         self.frequency_history = deque(maxlen=100)
         self.voltage_history = deque(maxlen=100)
@@ -135,15 +142,33 @@ class GridOperatorAgent(BaseAgent):
     
     async def make_strategic_decision(self, state: AgentState) -> Dict[str, Any]:
         """Make grid coordination and market clearing decisions"""
-        # Check if it's time for market clearing
-        time_since_clearing = datetime.now() - self.last_market_clearing
-        should_clear_market = time_since_clearing.total_seconds() >= (self.market_clearing_interval_minutes * 60)
+        # Check if we have bids to clear, or if we need to request new bids
+        has_bids = (len(self.generation_bids) > 0 or 
+                   len(self.storage_bids) > 0 or 
+                   len(self.demand_response_offers) > 0)
+        
+        # Decide whether to clear market or request bids
+        if has_bids:
+            # We have bids, so clear the market
+            should_clear_market = True
+            should_request_bids = False
+            reasoning = "Market clearing - bids available"
+        else:
+            # No bids yet, request them first
+            should_clear_market = False
+            should_request_bids = True
+            reasoning = "Requesting bids from agents"
+        
+        # Reserve margin management
+        reserve_margin = self._calculate_reserve_margin()
+        insufficient_reserves = reserve_margin < 100.0  # MW
         
         decision = {
             "action_type": "grid_coordination",
             "clear_market": should_clear_market,
+            "request_bids": should_request_bids,
             "market_interval_minutes": self.market_clearing_interval_minutes,
-            "reasoning": f"Grid coordination - Market clearing: {should_clear_market}"
+            "reasoning": reasoning
         }
         
         # Additional grid stability actions
@@ -155,16 +180,21 @@ class GridOperatorAgent(BaseAgent):
             decision["voltage_regulation_needed"] = True
             decision["target_voltage"] = 1.0
         
-        # Reserve margin management
-        reserve_margin = self._calculate_reserve_margin()
-        if reserve_margin < 100.0:  # MW
+        # Reserve margin management - request reserves but don't block market clearing
+        if insufficient_reserves:
             decision["insufficient_reserves"] = True
-            decision["required_reserves"] = 100.0 - reserve_margin
+            decision["required_reserves"] = 100.0
+            decision["current_reserves"] = reserve_margin
+            # Log warning but still allow market to operate
+            self.logger.warning(f"Low reserve margin: {reserve_margin:.1f} MW (target: 100 MW)")
         
         return decision
     
     async def execute_decision(self, decision: Dict[str, Any]) -> None:
         """Execute grid coordination decisions"""
+        if decision.get("request_bids", False):
+            await self._request_market_bids()
+        
         if decision.get("clear_market", False):
             await self._clear_market()
         
@@ -177,9 +207,51 @@ class GridOperatorAgent(BaseAgent):
         if decision.get("insufficient_reserves", False):
             await self._request_additional_reserves(decision["required_reserves"])
     
+    async def _request_market_bids(self) -> None:
+        """Request bids from all market participants"""
+        self.logger.info("Requesting bids from all market participants")
+        
+        # Send bid requests to generators
+        for agent_id, agent_type in self.registered_agents.items():
+            if agent_type == AgentType.GENERATOR:
+                await self.send_message(
+                    receiver_id=agent_id,
+                    message_type=MessageType.STATUS_UPDATE,
+                    content={
+                        "request_type": "generation_bid",
+                        "market_time": datetime.now().isoformat(),
+                        "message": "Please submit your generation bid"
+                    }
+                )
+            elif agent_type == AgentType.STORAGE:
+                await self.send_message(
+                    receiver_id=agent_id,
+                    message_type=MessageType.STATUS_UPDATE,
+                    content={
+                        "request_type": "storage_bid",
+                        "market_time": datetime.now().isoformat(),
+                        "message": "Please submit your storage bid"
+                    }
+                )
+            elif agent_type == AgentType.CONSUMER:
+                await self.send_message(
+                    receiver_id=agent_id,
+                    message_type=MessageType.STATUS_UPDATE,
+                    content={
+                        "request_type": "demand_response_offer",
+                        "market_time": datetime.now().isoformat(),
+                        "message": "Please submit your demand response offer"
+                    }
+                )
+    
     async def _clear_market(self) -> MarketResult:
         """Clear the energy market using economic dispatch"""
         self.logger.info("Starting market clearing process")
+        
+        # Log current market state
+        self.logger.info(f"Market state: {len(self.generation_bids)} generation bids, " +
+                        f"{len(self.storage_bids)} storage bids, " +
+                        f"{len(self.demand_response_offers)} DR offers")
         
         # Combine all bids
         all_supply_bids = []
@@ -188,6 +260,7 @@ class GridOperatorAgent(BaseAgent):
         # Generation bids (supply)
         for bid in self.generation_bids:
             all_supply_bids.append((bid.price_per_mwh, bid.quantity_mw, bid.agent_id, "generation"))
+            self.logger.debug(f"Generation bid: {bid.agent_id} - {bid.quantity_mw} MW @ ${bid.price_per_mwh}/MWh")
         
         # Storage discharge bids (supply) and charge bids (demand)
         for bid in self.storage_bids:
@@ -197,7 +270,9 @@ class GridOperatorAgent(BaseAgent):
                 all_demand_bids.append((bid.price_per_mwh, bid.quantity_mw, bid.agent_id, "storage_charge"))
         
         # Demand response offers (demand reduction = negative demand)
-        baseline_demand = self.grid_state.total_load_mw
+        baseline_demand = self._calculate_baseline_demand()
+        
+        self.logger.info(f"Market clearing with baseline demand: {baseline_demand:.1f} MW")
         
         # Sort supply bids by price (ascending)
         all_supply_bids.sort(key=lambda x: x[0])
@@ -240,6 +315,9 @@ class GridOperatorAgent(BaseAgent):
         # Broadcast market results
         await self._broadcast_market_results(market_result)
         
+        # Clear market bids for next round
+        self.clear_market_bids()
+        
         self.logger.info(f"Market cleared: {cleared_supply:.2f} MW at ${clearing_price:.2f}/MWh")
         
         return market_result
@@ -256,8 +334,12 @@ class GridOperatorAgent(BaseAgent):
             supply_curve.append((price, cumulative_supply, cumulative_supply + quantity, agent_id, bid_type))
             cumulative_supply += quantity
         
-        # Simple approach: clear at marginal cost of last dispatched unit
-        target_supply = baseline_demand
+        # If no supply available, return zero clearing
+        if not supply_curve:
+            return 0.0, 0.0, []
+        
+        # Dispatch supply up to available capacity or demand, whichever is smaller
+        target_supply = min(baseline_demand, cumulative_supply)
         
         cleared_bids = []
         total_cleared = 0.0
@@ -272,6 +354,10 @@ class GridOperatorAgent(BaseAgent):
                 cleared_bids.append((agent_id, quantity_needed, price))
                 total_cleared += quantity_needed
                 clearing_price = price  # Marginal price
+        
+        # If demand exceeds supply, use the highest bid price as clearing price
+        if baseline_demand > cumulative_supply and supply_curve:
+            clearing_price = supply_curve[-1][0]  # Price of last (most expensive) unit
         
         return clearing_price, total_cleared, cleared_bids
     
@@ -382,8 +468,43 @@ class GridOperatorAgent(BaseAgent):
     def _calculate_reserve_margin(self) -> float:
         """Calculate current reserve margin"""
         total_capacity = sum(bid.quantity_mw for bid in self.generation_bids)
+        
+        # Use actual load if available, otherwise use forecasted demand
         current_load = self.grid_state.total_load_mw
-        return total_capacity - current_load
+        if current_load == 0.0:
+            # Fallback to forecasted demand
+            demand_forecast = getattr(self, 'demand_forecast', {})
+            current_load = demand_forecast.get('expected_peak', 500.0) * 0.8  # Assume 80% of peak as current
+            
+        # Calculate predicted consumer loads from agent states
+        predicted_total_load = 0.0
+        for agent_id, state in self.agent_states.items():
+            agent_type = self.registered_agents.get(agent_id)
+            if agent_type == AgentType.CONSUMER:
+                # Use predicted load if available
+                predicted_load = state.get("predicted_load_mw", 0.0)
+                actual_load = state.get("current_load_mw", 0.0)
+                predicted_total_load += max(predicted_load, actual_load)
+        
+        # Use the higher of current load vs predicted load
+        effective_load = max(current_load, predicted_total_load)
+        
+        reserve_margin = total_capacity - effective_load
+        
+        # Debug logging - Enhanced for troubleshooting
+        self.logger.info(f"Reserve calculation details:")
+        self.logger.info(f"  - Generation bids count: {len(self.generation_bids)}")
+        self.logger.info(f"  - Total capacity from bids: {total_capacity:.1f} MW")
+        self.logger.info(f"  - Current grid load: {current_load:.1f} MW") 
+        self.logger.info(f"  - Predicted consumer load: {predicted_total_load:.1f} MW")
+        self.logger.info(f"  - Effective load (max): {effective_load:.1f} MW")
+        self.logger.info(f"  - Final reserve margin: {reserve_margin:.1f} MW")
+        
+        # Log individual generation bids for debugging
+        for i, bid in enumerate(self.generation_bids):
+            self.logger.debug(f"  Bid {i+1}: {bid.agent_id} - {bid.quantity_mw} MW @ ${bid.price_per_mwh}/MWh")
+        
+        return reserve_margin
     
     async def _handle_generation_bid(self, message: AgentMessage) -> None:
         """Handle generation bid from generator agents"""
@@ -585,3 +706,29 @@ class GridOperatorAgent(BaseAgent):
                 "producer_surplus": self.producer_surplus
             }
         } 
+    
+    def _calculate_baseline_demand(self) -> float:
+        """Calculate baseline demand for market clearing"""
+        # Start with grid state demand
+        baseline_demand = self.grid_state.total_load_mw
+        
+        # If no current load data, use forecasted or estimated demand
+        if baseline_demand == 0.0:
+            # Calculate estimated demand from consumer agent states
+            estimated_demand = 0.0
+            for agent_id, state in self.agent_states.items():
+                agent_type = self.registered_agents.get(agent_id)
+                if agent_type == AgentType.CONSUMER:
+                    predicted_load = state.get("predicted_load_mw", 0.0)
+                    actual_load = state.get("current_load_mw", 0.0)
+                    estimated_demand += max(predicted_load, actual_load)
+            
+            # If still no demand data, use market forecast or reasonable default
+            if estimated_demand == 0.0:
+                demand_forecast = getattr(self, 'demand_forecast', {})
+                baseline_demand = demand_forecast.get('expected_peak', 100.0) * 0.5  # 50% of peak as baseline
+            else:
+                baseline_demand = estimated_demand
+        
+        self.logger.info(f"Calculated baseline demand: {baseline_demand:.1f} MW")
+        return baseline_demand 

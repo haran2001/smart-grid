@@ -58,8 +58,11 @@ class BaseAgent(ABC):
         self.agent_type = agent_type
         self.config = config or {}
         self.state = AgentState(agent_id=agent_id, agent_type=agent_type)
-        self._message_queue = None  # Lazy-loaded
+        self._message_queue = asyncio.Queue() if hasattr(asyncio, 'Queue') else queue.Queue()
         self.graph = self._build_decision_graph()
+        
+        # Message router will be set by the simulation system
+        self.message_router = None
         
     @property
     def message_queue(self):
@@ -233,8 +236,11 @@ class BaseAgent(ABC):
             content=content,
             priority=priority
         )
-        # This would be implemented with actual message routing
         print(f"[{self.agent_id}] Sending {message_type.value} to {receiver_id}")
+        
+        # Route the message through the message router if available
+        if self.message_router:
+            await self.message_router.route_message(message)
     
     async def receive_message(self, message: AgentMessage) -> None:
         """Receive a message from another agent"""

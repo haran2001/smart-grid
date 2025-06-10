@@ -29,7 +29,7 @@ async def run_basic_demo():
     # Create and initialize the simulation
     print("\n📋 Creating simulation with sample scenario...")
     simulation = SmartGridSimulation()
-    simulation.create_sample_scenario()
+    await simulation.create_sample_scenario()
     
     print(f"✅ Simulation initialized with {len(simulation.agents)} agents:")
     for agent_id, agent in simulation.agents.items():
@@ -73,7 +73,7 @@ async def run_renewable_scenario_demo():
     
     # Create renewable-heavy scenario
     print("\n📋 Creating renewable-heavy scenario...")
-    simulation = create_renewable_heavy_scenario()
+    simulation = await create_renewable_heavy_scenario()
     
     print(f"✅ Renewable scenario initialized with {len(simulation.agents)} agents:")
     for agent_id, agent in simulation.agents.items():
@@ -112,7 +112,7 @@ async def demonstrate_agent_interactions():
     print("=" * 60)
     
     simulation = SmartGridSimulation()
-    simulation.create_sample_scenario()
+    await simulation.create_sample_scenario()
     
     # Get specific agents for demonstration
     generator_agent = None
@@ -131,7 +131,13 @@ async def demonstrate_agent_interactions():
     
     # Update market data for all agents
     for agent in simulation.agents.values():
-        agent.state.market_data.update(simulation.market_data)
+        # Handle different state structures
+        if hasattr(agent.state, 'market_data'):
+            agent.state.market_data.update(simulation.market_data)
+        elif isinstance(agent.state, dict):
+            if 'market_data' not in agent.state:
+                agent.state['market_data'] = {}
+            agent.state['market_data'].update(simulation.market_data)
     
     # Show generator decision-making
     if generator_agent:

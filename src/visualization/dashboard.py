@@ -54,11 +54,11 @@ class SmartGridDashboard:
             try:
                 if scenario_type == "Sample Scenario":
                     self.simulation = SmartGridSimulation()
-                    self.simulation.create_sample_scenario()
+                    asyncio.run(self.simulation.create_sample_scenario())
                 elif scenario_type == "Renewable Heavy":
-                    self.simulation = create_renewable_heavy_scenario()
+                    self.simulation = asyncio.run(create_renewable_heavy_scenario())
                 elif scenario_type == "Traditional Grid":
-                    self.simulation = create_traditional_grid_scenario()
+                    self.simulation = asyncio.run(create_traditional_grid_scenario())
                 else:
                     self.simulation = SmartGridSimulation()
                 
@@ -90,36 +90,91 @@ class SmartGridDashboard:
         
         # Display simulation status
         if self.simulation:
+            st.sidebar.subheader("Simulation Status")
             try:
                 status = "Running" if hasattr(self.simulation, 'is_running') and self.simulation.is_running else "Stopped"
-                st.sidebar.metric("Simulation Status", status)
+                st.sidebar.metric("Status", status)
+                
                 if hasattr(self.simulation, 'simulation_metrics'):
                     st.sidebar.metric("Total Steps", self.simulation.simulation_metrics.get("total_steps", 0))
+                    st.sidebar.metric("Messages Sent", self.simulation.simulation_metrics.get("messages_sent", 0))
+                
+                if hasattr(self.simulation, 'simulation_time'):
+                    st.sidebar.text(f"Simulation Time: {self.simulation.simulation_time.strftime('%H:%M:%S')}")
+                
+                # Show number of agents
+                if hasattr(self.simulation, 'agents'):
+                    st.sidebar.metric("Active Agents", len(self.simulation.agents))
+                
+                # Show data points collected
+                st.sidebar.metric("Data Points", len(self.metrics_history))
+                
             except Exception as e:
                 st.sidebar.text(f"Status unavailable: {e}")
     
     def _start_simulation_background(self):
         """Start simulation in background (simplified for demo)"""
-        if self.simulation and not self.simulation.is_running:
-            # For demo purposes, just run a few steps
-            try:
-                asyncio.run(self._run_simulation_steps(5))
-                st.sidebar.success("Simulation steps completed")
-            except Exception as e:
-                st.sidebar.error(f"Simulation error: {e}")
+        if not self.simulation:
+            st.sidebar.error("Please initialize a simulation first")
+            return
+            
+        if hasattr(self.simulation, 'is_running') and self.simulation.is_running:
+            st.sidebar.warning("Simulation is already running")
+            return
+        
+        try:
+            # Show progress
+            progress_bar = st.sidebar.progress(0)
+            status_text = st.sidebar.empty()
+            
+            status_text.text("Starting simulation...")
+            
+            # Run a smaller number of steps for demo (5 steps = 25 minutes of simulation time)
+            steps_to_run = 5
+            asyncio.run(self._run_simulation_steps(steps_to_run, progress_bar, status_text))
+            
+            progress_bar.progress(100)
+            status_text.text("Simulation completed successfully!")
+            st.sidebar.success(f"Completed {steps_to_run} simulation steps")
+            
+            # Clear progress after a moment
+            import time
+            time.sleep(2)
+            progress_bar.empty()
+            status_text.empty()
+            
+        except Exception as e:
+            st.sidebar.error(f"Simulation error: {str(e)}")
+            print(f"Dashboard simulation error: {e}")
     
-    async def _run_simulation_steps(self, steps: int):
+    async def _run_simulation_steps(self, steps: int, progress_bar=None, status_text=None):
         """Run a few simulation steps"""
-        for _ in range(steps):
-            await self.simulation.run_simulation_step()
-            metrics = await self.simulation.get_real_time_metrics()
-            self.metrics_history.append({
-                'timestamp': datetime.now(),
-                'metrics': metrics
-            })
-            # Keep only recent history
-            if len(self.metrics_history) > self.max_history_points:
-                self.metrics_history.pop(0)
+        for i in range(steps):
+            try:
+                # Update progress
+                if progress_bar:
+                    progress = int((i / steps) * 100)
+                    progress_bar.progress(progress)
+                if status_text:
+                    status_text.text(f"Running step {i+1}/{steps}...")
+                
+                # Run one simulation step
+                await self.simulation.run_simulation_step()
+                
+                # Get metrics
+                metrics = await self.simulation.get_real_time_metrics()
+                self.metrics_history.append({
+                    'timestamp': datetime.now(),
+                    'metrics': metrics
+                })
+                
+                # Keep only recent history
+                if len(self.metrics_history) > self.max_history_points:
+                    self.metrics_history.pop(0)
+                    
+            except Exception as e:
+                print(f"Error in simulation step {i+1}: {e}")
+                raise
     
     def display_grid_overview(self):
         """Display grid overview metrics"""
@@ -228,60 +283,76 @@ class SmartGridDashboard:
     
     def display_system_charts(self):
         """Display system-wide charts and visualizations"""
-        if not self.metrics_history:
-            st.info("No historical data available. Run some simulation steps to see charts.")
-            return
-        
         st.header("System Performance Charts")
+        
+        # Add refresh button
+        col1, col2 = st.columns([1, 4])
+        with col1:
+            if st.button("🔄 Refresh Data"):
+                st.rerun()
+        
+        with col2:
+            st.text(f"Data points available: {len(self.metrics_history)}")
+        
+        if not self.metrics_history:
+            st.info("No historical data available. Initialize a simulation and click 'Start Simulation' to see charts.")
+            return
         
         # Prepare data for charts
         timestamps = [entry['timestamp'] for entry in self.metrics_history]
         
         # Grid stability chart
         if self.simulation and self.simulation.grid_operator:
-            grid_metrics = []
-            for entry in self.metrics_history:
-                if 'grid_system' in entry['metrics']:
-                    grid_metrics.append(entry['metrics']['grid_system'])
-            
-            if grid_metrics:
-                fig = make_subplots(
-                    rows=2, cols=2,
-                    subplot_titles=['Frequency Stability', 'Voltage Stability', 'Price Evolution', 'Renewable Penetration'],
-                    specs=[[{"secondary_y": False}, {"secondary_y": False}],
-                           [{"secondary_y": False}, {"secondary_y": False}]]
-                )
+            try:
+                grid_metrics = []
+                for entry in self.metrics_history:
+                    if 'grid_system' in entry['metrics']:
+                        grid_metrics.append(entry['metrics']['grid_system'])
                 
-                # Frequency stability
-                frequencies = [self.simulation.grid_operator.grid_state.frequency_hz] * len(timestamps)
-                fig.add_trace(
-                    go.Scatter(x=timestamps, y=frequencies, name="Frequency", line=dict(color='red')),
-                    row=1, col=1
-                )
-                
-                # Voltage stability
-                voltages = [self.simulation.grid_operator.grid_state.voltage_pu] * len(timestamps)
-                fig.add_trace(
-                    go.Scatter(x=timestamps, y=voltages, name="Voltage", line=dict(color='blue')),
-                    row=1, col=2
-                )
-                
-                # Price evolution
-                prices = [self.simulation.market_data['current_price']] * len(timestamps)
-                fig.add_trace(
-                    go.Scatter(x=timestamps, y=prices, name="Price", line=dict(color='green')),
-                    row=2, col=1
-                )
-                
-                # Renewable penetration
-                renewable_pct = [metric.get('renewable_penetration', 0) for metric in grid_metrics]
-                fig.add_trace(
-                    go.Scatter(x=timestamps, y=renewable_pct, name="Renewable %", line=dict(color='orange')),
-                    row=2, col=2
-                )
-                
-                fig.update_layout(height=600, showlegend=False)
-                st.plotly_chart(fig, use_container_width=True)
+                if grid_metrics:
+                    fig = make_subplots(
+                        rows=2, cols=2,
+                        subplot_titles=['Frequency Stability', 'Voltage Stability', 'Price Evolution', 'Renewable Penetration'],
+                        specs=[[{"secondary_y": False}, {"secondary_y": False}],
+                               [{"secondary_y": False}, {"secondary_y": False}]]
+                    )
+                    
+                    # Frequency stability
+                    frequencies = [self.simulation.grid_operator.grid_state.frequency_hz] * len(timestamps)
+                    fig.add_trace(
+                        go.Scatter(x=timestamps, y=frequencies, name="Frequency", line=dict(color='red')),
+                        row=1, col=1
+                    )
+                    
+                    # Voltage stability
+                    voltages = [self.simulation.grid_operator.grid_state.voltage_pu] * len(timestamps)
+                    fig.add_trace(
+                        go.Scatter(x=timestamps, y=voltages, name="Voltage", line=dict(color='blue')),
+                        row=1, col=2
+                    )
+                    
+                    # Price evolution
+                    prices = [self.simulation.market_data['current_price']] * len(timestamps)
+                    fig.add_trace(
+                        go.Scatter(x=timestamps, y=prices, name="Price", line=dict(color='green')),
+                        row=2, col=1
+                    )
+                    
+                    # Renewable penetration
+                    renewable_pct = [metric.get('renewable_penetration', 0) for metric in grid_metrics]
+                    fig.add_trace(
+                        go.Scatter(x=timestamps, y=renewable_pct, name="Renewable %", line=dict(color='orange')),
+                        row=2, col=2
+                    )
+                    
+                    fig.update_layout(height=600, showlegend=False)
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("Grid metrics not available in historical data.")
+            except Exception as e:
+                st.error(f"Error displaying charts: {str(e)}")
+        else:
+            st.info("Please initialize a simulation to view system charts.")
     
     def display_communication_network(self):
         """Display agent communication network"""
@@ -424,7 +495,7 @@ class SmartGridDashboard:
         if st.checkbox("Auto-refresh (every 10 seconds)", value=False):
             import time
             time.sleep(10)
-            st.experimental_rerun()
+            st.rerun()
 
 
 def main():
