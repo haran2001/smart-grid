@@ -174,3 +174,11 @@ Based on the architecture we've designed, here are comprehensive experiments tha
 - **Technology Roadmaps**: Development priorities for grid technology companies
 
 These experiments would provide the empirical foundation needed to transition from simulation to real-world smart grid deployment, addressing both technical challenges and socioeconomic considerations that determine success in practice.
+
+
+Try to recreate previous disasters and try to how the results keep up
+1. Blackouts 
+2. Natural disasters
+3. Pre-renewable energy era
+
+Where all does the model break

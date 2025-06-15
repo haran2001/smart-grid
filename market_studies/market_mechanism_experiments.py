@@ -22,6 +22,11 @@ from enum import Enum
 import time
 from pathlib import Path
 
+import os
+import sys
+# Add the parent directory to the path so we can import from src
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
 from src.coordination.multi_agent_system import SmartGridSimulation, create_renewable_heavy_scenario
 
 # Configure logging
