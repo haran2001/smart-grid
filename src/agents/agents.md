@@ -785,3 +785,476 @@ generator_metrics = {
 ---
 
 *The Generator Agent demonstrates how artificial intelligence can optimize complex economic decisions in real-time, learning to balance profit maximization with grid stability and environmental responsibility.*
+
+## 🏠 Consumer Agent - Smart Home Energy Manager
+
+The Consumer Agent represents an intelligent household that uses **Multi-Agent Deep Deterministic Policy Gradient (MADDPG)** to optimize energy consumption, comfort, and costs. It manages demand response, EV charging, HVAC systems, and home batteries while considering other agents' actions.
+
+### 📊 **Consumer Agent Workflow Diagram**
+
+```mermaid
+graph TD
+    A["Consumer Agent"] --> B["Monitor Market & Home State"]
+    B --> C["Encode State Vector<br/>40 dimensions"]
+    C --> D["MADDPG Decision Making"]
+    
+    D --> E["Actor Network<br/>Continuous Actions"]
+    E --> F["Add Exploration Noise<br/>Gaussian Noise"]
+    F --> G["Decode Actions<br/>4 Control Signals"]
+    
+    G --> H["DR Participation<br/>[0-1]"]
+    G --> I["EV Charging Adj<br/>[-1,+1]"]
+    G --> J["HVAC Adjustment<br/>±3°C"]
+    G --> K["Battery Dispatch<br/>±5kW"]
+    
+    H --> L["Execute Control Actions"]
+    I --> L
+    J --> L
+    K --> L
+    
+    L --> M["Update Home Systems"]
+    M --> N["Send DR Offer to Grid"]
+    M --> O["Update Status to Grid"]
+    
+    N --> P["Receive Market Result"]
+    O --> P
+    P --> Q["Calculate Utility Reward<br/>Comfort - Cost + DR_Pay - Inconvenience"]
+    
+    Q --> R["Store Multi-Agent Experience<br/>Include Other Agents' Actions"]
+    R --> S["Train MADDPG Networks<br/>Actor + Critic"]
+    
+    S --> T["Soft Update Target Networks"]
+    T --> U["Next Market Cycle"]
+    U --> B
+    
+    subgraph STATE ["State Encoding (40D)"]
+        S1["Home Status (0-9)<br/>Load, Comfort, EV, Battery, Solar"]
+        S2["Market Prices (10-19)<br/>Current + History + Forecast"]
+        S3["Weather (20-25)<br/>Temperature, Humidity, Solar, Wind"]
+        S4["Time Features (24-27)<br/>Hour, Day, Month, Weekend"]
+        S5["Grid Conditions (28-33)<br/>Demand, DR Price, Peak Forecast"]
+        S6["Performance (36-39)<br/>Costs, Payments, Inconvenience"]
+    end
+    
+    subgraph ACTIONS ["Continuous Action Space (4D)"]
+        A1["DR Participation: [0,1]<br/>0% to 100% load reduction"]
+        A2["EV Charging: [-1,+1]<br/>-10kW to +10kW adjustment"]
+        A3["HVAC Temp: [-1,+1]<br/>±3°C setpoint change"]
+        A4["Battery: [-1,+1]<br/>±5kW charge/discharge"]
+        
+        A1 --> A5["Continuous Control<br/>Fine-grained adjustments"]
+        A2 --> A5
+        A3 --> A5
+        A4 --> A5
+    end
+    
+    subgraph UTILITY ["Utility Function"]
+        U1["Comfort Level<br/>Temperature satisfaction"]
+        U2["Energy Costs<br/>kWh × Price"]
+        U3["DR Payments<br/>Load reduction rewards"]
+        U4["Inconvenience Penalty<br/>Lifestyle disruption"]
+        
+        U1 --> U5["Total Utility<br/>Comfort - Cost + DR_Pay - Inconvenience"]
+        U2 --> U5
+        U3 --> U5
+        U4 --> U5
+    end
+    
+    subgraph MADDPG ["MADDPG Architecture"]
+        M1["Actor Network<br/>State → Actions"]
+        M2["Critic Network<br/>All States + All Actions → Q-value"]
+        M3["Target Networks<br/>Stable learning targets"]
+        
+        M1 --> M4["Policy Gradient<br/>Maximize expected reward"]
+        M2 --> M4
+        M3 --> M4
+    end
+    
+    style A fill:#ff6b6b,stroke:#333,stroke-width:3px,color:#fff
+    style D fill:#4ecdc4,stroke:#333,stroke-width:2px,color:#fff
+    style Q fill:#ffe66d,stroke:#333,stroke-width:2px
+    style S fill:#95e1d3,stroke:#333,stroke-width:2px
+    style L fill:#ffa726,stroke:#333,stroke-width:2px
+```
+
+## 🧠 **Multi-Agent Deep Deterministic Policy Gradient (MADDPG)**
+
+### **Actor-Critic Architecture**
+
+```python
+class MADDPGActor(nn.Module):
+    def __init__(self, state_size=40, action_size=4):
+        super(MADDPGActor, self).__init__()
+        self.fc1 = nn.Linear(state_size, 128)     # Input → Hidden 1
+        self.fc2 = nn.Linear(128, 64)             # Hidden 1 → Hidden 2
+        self.fc3 = nn.Linear(64, action_size)     # Hidden 2 → Output
+        
+    def forward(self, state):
+        x = torch.relu(self.fc1(state))
+        x = torch.relu(self.fc2(x))
+        return torch.sigmoid(self.fc3(x))         # Actions in [0,1]
+
+class MADDPGCritic(nn.Module):
+    def __init__(self, state_size=40, action_size=4, num_agents=3):
+        super(MADDPGCritic, self).__init__()
+        # Critic sees ALL agents' states and actions
+        total_input = state_size + action_size * num_agents
+        self.fc1 = nn.Linear(total_input, 128)
+        self.fc2 = nn.Linear(128, 64)
+        self.fc3 = nn.Linear(64, 1)               # Single Q-value output
+```
+
+**Key Differences from DQN:**
+- **Continuous Actions**: Real-valued control signals instead of discrete choices
+- **Multi-Agent Awareness**: Critic considers actions from all agents
+- **Actor-Critic**: Separate networks for policy (actor) and value estimation (critic)
+- **Deterministic Policy**: Actor outputs specific actions, not probabilities
+
+## 📊 **State Space Representation (40 Dimensions)**
+
+### **Home Operational Status (Indices 0-9)**
+```python
+# Current home state
+state_vector[0] = current_load_mw / 100.0           # Normalized load
+state_vector[1] = flexible_load_mw / 50.0           # Available flexibility
+state_vector[2] = comfort_level / 100.0             # Current comfort
+state_vector[3] = comfort_preference / 100.0        # Desired comfort
+state_vector[4] = temperature_setpoint / 30.0       # HVAC setpoint
+state_vector[5] = ev_battery_soc / 100.0            # EV charge level
+state_vector[6] = ev_charging_rate_kw / 50.0        # EV charging rate
+state_vector[7] = solar_generation_kw / 20.0        # Solar output
+state_vector[8] = battery_soc / 100.0               # Home battery level
+state_vector[9] = last_dr_participation             # Previous DR level
+```
+
+### **Market Price Information (Indices 10-19)**
+```python
+# Price signals for decision making
+state_vector[10] = current_price / 100.0            # Current $/MWh
+state_vector[11:17] = price_history[-6:] / 100.0    # Last 6 hours
+state_vector[17:20] = price_forecast[:3] / 100.0    # Next 3 hours
+```
+
+### **Environmental & Grid Conditions (Indices 20-33)**
+```python
+# Weather impact on energy needs
+state_vector[20] = outdoor_temp / 40.0              # Temperature
+state_vector[21] = humidity / 100.0                 # Humidity
+state_vector[22] = solar_irradiance / 1000.0        # Solar potential
+state_vector[23] = wind_speed / 20.0                # Wind conditions
+
+# Time-based patterns
+state_vector[24] = hour / 24.0                      # Hour of day
+state_vector[25] = weekday / 7.0                    # Day of week
+state_vector[26] = month / 12.0                     # Month
+state_vector[27] = is_weekend                       # Weekend flag
+
+# Grid conditions and opportunities
+state_vector[28] = expected_peak / 2000.0           # Grid demand forecast
+state_vector[29] = dr_price / 200.0                 # DR payment rate
+```
+
+## 🎯 **Continuous Action Space (4 Dimensions)**
+
+### **Action Decoding**
+```python
+def _decode_actions(self, action_tensor):
+    actions = action_tensor.detach().numpy()  # [0,1] range
+    
+    # Action 0: Demand Response Participation
+    dr_participation = actions[0]  # 0% to 100% load reduction
+    
+    # Action 1: EV Charging Adjustment  
+    ev_adjustment = (actions[1] - 0.5) * 2  # Map to [-1,+1]
+    # -1 = reduce by 10kW, +1 = increase by 10kW
+    
+    # Action 2: HVAC Temperature Adjustment
+    hvac_adjustment = (actions[2] - 0.5) * 6  # ±3°C change
+    
+    # Action 3: Home Battery Dispatch
+    battery_dispatch = (actions[3] - 0.5) * 2  # ±5kW
+    # Positive = discharge (sell), Negative = charge (buy)
+    
+    return {
+        "dr_participation": dr_participation,
+        "ev_charging_adjustment": ev_adjustment,
+        "hvac_adjustment": hvac_adjustment,
+        "battery_dispatch": battery_dispatch
+    }
+```
+
+### **Action Space Analysis**
+
+| Action | Range | Physical Meaning | Impact |
+|--------|-------|------------------|---------|
+| **DR Participation** | [0,1] | 0% to 100% load reduction | **Revenue**: DR payments |
+| **EV Charging** | [-1,+1] | ±10kW charging adjustment | **Flexibility**: Shift charging times |
+| **HVAC Control** | [-1,+1] | ±3°C temperature change | **Comfort**: Temperature satisfaction |
+| **Battery Dispatch** | [-1,+1] | ±5kW charge/discharge | **Arbitrage**: Buy low, sell high |
+
+## 💰 **Utility Function (Multi-Objective Reward)**
+
+### **Utility Calculation**
+```python
+def _calculate_utility(self, actions, market_result):
+    # 1. Energy Costs
+    actual_load_kw = baseline_load_kw - dr_load_reduction + ev_charging - battery_discharge
+    energy_cost = actual_load_kw * current_price_per_kwh
+    
+    # 2. Demand Response Payments
+    dr_payments = dr_load_reduction * dr_payment_rate
+    
+    # 3. Comfort Level
+    temp_deviation = abs(hvac_adjustment)
+    comfort_impact = temp_deviation * 5  # Comfort penalty per degree
+    current_comfort = comfort_preference - comfort_impact
+    
+    # 4. Inconvenience Penalty
+    inconvenience = (dr_participation * 20 +           # DR disruption
+                    abs(ev_adjustment) * 10 +          # EV charging changes  
+                    temp_deviation * 15)               # Temperature changes
+    
+    # Total Utility
+    utility = current_comfort - energy_cost + dr_payments - inconvenience
+    return utility / 100.0  # Normalize
+```
+
+### **Utility Components Breakdown**
+
+**Positive Rewards:**
+- **High Comfort**: Maintaining preferred temperature and lifestyle
+- **DR Payments**: Revenue from reducing load during peak periods
+- **Energy Arbitrage**: Using battery to buy low, sell high
+- **Solar Utilization**: Maximizing self-consumption of solar power
+
+**Negative Penalties:**
+- **Energy Costs**: Higher prices reduce utility
+- **Inconvenience**: Lifestyle disruption from DR participation
+- **Comfort Loss**: Temperature deviations from preference
+- **EV Charging Disruption**: Changing planned charging schedules
+
+## 🔄 **MADDPG Learning Process**
+
+### **Multi-Agent Experience Storage**
+```python
+def learn_from_market_result(self, market_result, other_agent_actions):
+    # Calculate utility reward
+    utility = self._calculate_utility(actions_dict, market_result)
+    
+    # Store multi-agent experience
+    # (own_state, own_action, all_actions, reward, next_state)
+    all_actions = np.concatenate([self.current_action] + other_agent_actions)
+    
+    self.replay_buffer.append((
+        self.current_state,      # Own state (40D)
+        self.current_action,     # Own action (4D)  
+        all_actions,            # All agents' actions (12D for 3 agents)
+        utility,                # Reward signal
+        next_state,             # Next state (40D)
+        False                   # Not terminal
+    ))
+```
+
+### **Network Training**
+```python
+def _train_maddpg(self):
+    # Sample batch of experiences
+    batch = random.sample(self.replay_buffer, batch_size=64)
+    
+    # Train Critic (Q-function)
+    with torch.no_grad():
+        # Get target actions for all agents
+        next_actions_own = self.actor_target(next_states)
+        next_actions_others = get_other_agents_actions(next_states)  # From other agents
+        next_actions_all = torch.cat([next_actions_own, next_actions_others], dim=1)
+        
+        # Calculate target Q-values
+        target_q = self.critic_target(next_states, next_actions_all)
+        target_q = rewards + gamma * target_q
+    
+    # Current Q-values
+    current_q = self.critic(states, all_actions)
+    critic_loss = F.mse_loss(current_q, target_q)
+    
+    # Train Actor (Policy)
+    predicted_actions_own = self.actor(states)
+    predicted_actions_all = torch.cat([predicted_actions_own, other_actions], dim=1)
+    actor_loss = -self.critic(states, predicted_actions_all).mean()
+    
+    # Update networks
+    self.critic_optimizer.step()
+    self.actor_optimizer.step()
+    
+    # Soft update target networks (τ = 0.001)
+    soft_update(self.actor_target, self.actor, tau=0.001)
+    soft_update(self.critic_target, self.critic, tau=0.001)
+```
+
+## 🏠 **Smart Home Control Systems**
+
+### **Demand Response Strategy**
+```python
+# DR participation decision
+if dr_participation > 0.1:  # Minimum 10% participation
+    flexible_load_reduction = flexible_load_mw * dr_participation
+    
+    # Send DR offer to grid operator
+    await self.send_message(
+        receiver_id="grid_operator",
+        message_type=MessageType.DEMAND_RESPONSE_OFFER,
+        content={
+            "flexible_load_mw": flexible_load_reduction,
+            "duration_hours": 2,
+            "price_required_per_mwh": 80.0,  # Minimum acceptable price
+            "comfort_constraints": {
+                "min_temperature": 20.0,
+                "max_temperature": 26.0
+            }
+        }
+    )
+```
+
+### **EV Charging Optimization**
+```python
+# EV charging adjustment
+ev_baseline_charging = 7.0  # kW
+ev_actual_charging = max(0, ev_baseline_charging + ev_adjustment * 10)
+
+# Update EV battery state
+if ev_actual_charging > 0:
+    soc_increase = ev_actual_charging / 100.0  # Assume 100 kWh battery
+    ev_battery_soc = min(100.0, ev_battery_soc + soc_increase)
+```
+
+### **HVAC Control**
+```python
+# Temperature setpoint adjustment
+new_setpoint = current_setpoint + hvac_adjustment
+temperature_setpoint = max(18.0, min(28.0, new_setpoint))  # Safety limits
+
+# Comfort impact calculation
+comfort_impact = abs(hvac_adjustment) * 5  # Comfort reduction per degree
+current_comfort = max(0, comfort_preference - comfort_impact)
+```
+
+### **Home Battery Management**
+```python
+# Battery dispatch decision
+battery_power = battery_dispatch * 5.0  # ±5 kW
+
+if battery_power > 0:  # Discharging (selling power)
+    soc_decrease = battery_power / 20.0  # Assume 20 kWh battery
+    battery_soc = max(0.0, battery_soc - soc_decrease)
+    net_load_reduction = battery_power
+    
+elif battery_power < 0:  # Charging (buying power)
+    soc_increase = abs(battery_power) / 20.0
+    battery_soc = min(100.0, battery_soc + soc_increase)
+    net_load_increase = abs(battery_power)
+```
+
+## 📈 **Learning Strategy Evolution**
+
+### **Learning Phases**
+
+#### **Phase 1: Exploration (Early Training)**
+- **High Noise**: Random actions to explore control space
+- **Comfort Discovery**: Learning comfort-energy trade-offs
+- **Market Pattern Recognition**: Understanding price signals
+
+#### **Phase 2: Coordination (Mid Training)**
+- **Multi-Agent Awareness**: Learning to respond to other agents
+- **Strategic Timing**: Optimal DR participation timing
+- **Resource Optimization**: Coordinating EV, battery, and HVAC
+
+#### **Phase 3: Optimization (Mature Training)**
+- **Predictive Control**: Anticipating market conditions
+- **Comfort Maximization**: Minimizing inconvenience while saving costs
+- **Grid Support**: Contributing to system stability
+
+### **Strategic Behaviors Learned**
+
+1. **Peak Shaving**: Reducing load during high-price periods
+2. **Load Shifting**: Moving flexible loads to low-price periods
+3. **Battery Arbitrage**: Charging during low prices, discharging during high prices
+4. **Comfort Optimization**: Minimal temperature adjustments for maximum savings
+5. **EV Smart Charging**: Charging when prices are low and grid needs support
+
+## 🎯 **Consumer Objectives & Trade-offs**
+
+### **Primary Objectives**
+1. **Cost Minimization**: Reduce electricity bills through smart control
+2. **Comfort Maintenance**: Preserve lifestyle and temperature preferences
+3. **Revenue Generation**: Earn money through demand response participation
+4. **Grid Support**: Contribute to system stability and renewable integration
+
+### **Strategic Trade-offs**
+- **Comfort vs. Cost**: Temperature adjustments for energy savings
+- **Convenience vs. Revenue**: DR participation inconvenience vs. payments
+- **Immediate vs. Future**: Battery charging timing for optimal arbitrage
+- **Individual vs. System**: Personal optimization vs. grid stability support
+
+## 📊 **Performance Metrics**
+
+### **Economic Metrics**
+```python
+consumer_metrics = {
+    "total_energy_cost": cumulative_electricity_costs,
+    "dr_payments_received": demand_response_revenue,
+    "net_savings": dr_payments - energy_costs,
+    "utility_score": comfort - costs + payments - inconvenience
+}
+```
+
+### **Comfort & Lifestyle Metrics**
+- **Average Comfort Level**: Temperature satisfaction over time
+- **Comfort Stability**: Variance in comfort levels (lower is better)
+- **Inconvenience Score**: Cumulative lifestyle disruption
+- **DR Participation Rate**: Percentage of DR opportunities accepted
+
+### **Technical Metrics**
+- **Load Factor**: Actual load vs. baseline load ratio
+- **EV Battery SoC**: Electric vehicle charge level management
+- **Home Battery SoC**: Home energy storage utilization
+- **Solar Self-Consumption**: Percentage of solar power used locally
+
+## 🚨 **Challenges & Limitations**
+
+### **Multi-Agent Challenges**
+1. **Coordination**: Learning optimal responses to other agents' actions
+2. **Non-Stationarity**: Other agents learning simultaneously changes environment
+3. **Communication**: Limited information about other agents' intentions
+4. **Scalability**: Complexity increases exponentially with number of agents
+
+### **Technical Limitations**
+1. **Simplified Models**: Basic battery, EV, and HVAC models
+2. **Perfect Forecasting**: Assumes accurate price and weather forecasts
+3. **No Equipment Failures**: No modeling of system breakdowns
+4. **Continuous Actions**: May not reflect discrete appliance controls
+
+### **Behavioral Challenges**
+1. **Comfort Quantification**: Difficult to model subjective comfort preferences
+2. **Lifestyle Patterns**: Complex human behavior patterns not fully captured
+3. **Emergency Situations**: No modeling of urgent energy needs
+4. **Social Factors**: No consideration of family dynamics or social preferences
+
+## 🔮 **Future Enhancements**
+
+### **Advanced RL Algorithms**
+- **Soft Actor-Critic (SAC)**: Better exploration in continuous action spaces
+- **Multi-Agent Proximal Policy Optimization (MAPPO)**: More stable training
+- **Attention Mechanisms**: Focus on relevant market signals and agent actions
+
+### **Enhanced Home Modeling**
+- **Detailed Thermal Models**: Accurate HVAC and building thermal dynamics
+- **Appliance Scheduling**: Individual control of dishwashers, washing machines, etc.
+- **Occupancy Patterns**: Learning and adapting to household routines
+
+### **Advanced Coordination**
+- **Communication Protocols**: Direct agent-to-agent communication
+- **Hierarchical Control**: Neighborhood-level coordination
+- **Federated Learning**: Privacy-preserving multi-agent learning
+
+---
+
+*The Consumer Agent showcases how intelligent homes can actively participate in electricity markets, optimizing comfort and costs while supporting grid stability through sophisticated multi-agent reinforcement learning.*
