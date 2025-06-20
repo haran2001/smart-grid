@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Grid Blackout Scenario Analysis Dashboard</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            line-height: 1.6;
+        }
+
+        .header {
+            text-align: center;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 20px;
+            border-radius: 10px;
+            margin-bottom: 30px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 2.5em;
+            font-weight: 300;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .section {
+            background: white;
+            padding: 30px;
+            margin-bottom: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .section h2 {
+            color: #333;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+        }
+
+        .visualization {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .visualization img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .metric-card {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        .metric-card h4 {
+            margin: 0 0 10px 0;
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+
+        .metric-card .value {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 0;
+        }
+
+        .scenario-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .scenario-card {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            border-top: 4px solid #667eea;
+        }
+
+        .scenario-card.texas {
+            border-top-color: #ff4444;
+        }
+
+        .scenario-card.california {
+            border-top-color: #ff8800;
+        }
+
+        .scenario-card.elliott {
+            border-top-color: #4444ff;
+        }
+
+        .scenario-metric {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            padding: 5px 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .insight-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .insight-list li {
+            background: #f8f9fa;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #28a745;
+        }
+
+        .recommendation-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .recommendation-list li {
+            background: #fff3cd;
+            margin: 10px 0;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #ffc107;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Smart Grid Blackout Scenario Analysis</h1>
+            <p>Comprehensive analysis of extreme weather impacts on multi-agent smart grid systems</p>
+        </div>
+
+        <!-- Key Metrics Overview -->
+        <div class="section">
+            <h2>Executive Summary</h2>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <h4>Scenarios Analyzed</h4>
+                    <div class="value">3</div>
+                </div>
+                <div class="metric-card">
+                    <h4>Average Reliability</h4>
+                    <div class="value">40.3%</div>
+                </div>
+                <div class="metric-card">
+                    <h4>Total Blackout Events</h4>
+                    <div class="value">40</div>
+                </div>
+                <div class="metric-card">
+                    <h4>Total Duration</h4>
+                    <div class="value">20 hrs</div>
+                </div>
+                <div class="metric-card">
+                    <h4>Worst Scenario</h4>
+                    <div class="value" style="font-size: 1.2em;">Texas Winter</div>
+                </div>
+                <div class="metric-card">
+                    <h4>Best Scenario</h4>
+                    <div class="value" style="font-size: 1.2em;">Winter Elliott</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Scenario Comparison -->
+        <div class="section">
+            <h2>Scenario Comparison Dashboard</h2>
+            <div class="visualization">
+                <h3>Overall Performance Comparison</h3>
+                <img src="blackout_visualizations/scenario_comparison.png" alt="Scenario Comparison Charts">
+                <p><strong>Key Findings:</strong> Texas Winter Storm Uri showed the worst performance with only 37.9%
+                    reliability and 20 blackout events. Cold weather scenarios generally performed worse than heat
+                    scenarios, indicating significant vulnerabilities in winterization.</p>
+            </div>
+        </div>
+
+        <!-- Vulnerability Analysis -->
+        <div class="section">
+            <h2>Grid Vulnerability Assessment</h2>
+            <div class="visualization">
+                <h3>Risk Heatmap Across All Scenarios</h3>
+                <img src="blackout_visualizations/vulnerability_heatmap.png" alt="Vulnerability Heatmap">
+                <p><strong>Analysis:</strong> The heatmap reveals that Texas Winter Storm Uri poses the highest risk
+                    across all categories, particularly in supply shortage and load shedding risk. Winter Storm Elliott
+                    shows better coordination but still significant supply challenges.</p>
+            </div>
+        </div>
+
+        <!-- Timeline Analysis -->
+        <div class="section">
+            <h2>Detailed Timeline Analysis</h2>
+
+            <div class="visualization">
+                <h3>Texas Winter Storm Uri (February 2021)</h3>
+                <img src="blackout_visualizations/timeline_texas_winter_uri.png" alt="Texas Timeline">
+                <p><strong>Extreme Cold Impact:</strong> This scenario shows the most severe degradation with frequency
+                    dropping to dangerous levels below 49 Hz within the first few hours. Generation capacity collapsed
+                    from 1610 MW to 211 MW, representing an 87% loss.</p>
+            </div>
+
+            <div class="visualization">
+                <h3>California Heat Wave (August 2020)</h3>
+                <img src="blackout_visualizations/timeline_california_heat_wave.png" alt="California Timeline">
+                <p><strong>Heat Stress Effects:</strong> The heat wave scenario showed better resilience compared to
+                    cold weather events. While demand peaked at 1946 MW, generation only dropped to 1481 MW (24% loss).
+                </p>
+            </div>
+
+            <div class="visualization">
+                <h3>Winter Storm Elliott (December 2022)</h3>
+                <img src="blackout_visualizations/timeline_winter_storm_elliott.png" alt="Elliott Timeline">
+                <p><strong>Improved Winter Response:</strong> This more recent winter storm showed the best performance,
+                    suggesting improvements in cold weather preparedness. Only 8 blackout events occurred.</p>
+            </div>
+        </div>
+
+        <!-- Scenario Details -->
+        <div class="section">
+            <h2>Scenario Performance Details</h2>
+            <div class="scenario-cards">
+                <div class="scenario-card texas">
+                    <h4>Texas Winter Storm Uri (February 2021)</h4>
+                    <div class="scenario-metric">
+                        <span>Reliability Score:</span>
+                        <span><strong>37.9%</strong></span>
+                    </div>
+                    <div class="scenario-metric">
+                        <span>Blackout Events:</span>
+                        <span><strong>20</strong></span>
+                    </div>
+                    <div class="scenario-metric">
+                        <span>Duration:</span>
+                        <span><strong>10.0 hours</strong></span>
+                    </div>
+                    <div class="scenario-metric">
+                        <span>Max Unserved Load:</span>
+                        <span><strong>1,399 MW</strong></span>
+                    </div>
+                    <div class="scenario-metric">
+                        <span>Generation Loss:</span>
+                        <span><strong>87%</strong></span>
+                    </div>
+                </div>
+
+                <div class="scenario-card california">
+                    <h4>California Heat Wave (August 2020)</h4>
+                    <div class="scenario-metric">
+                        <span>Reliability Score:</span>
+                        <span><strong>40.8%</strong></span>
+                    </div>
+                    <div class="scenario-metric">
+                        <span>Blackout Events:</span>
+                        <span><strong>12</strong></span>
+                    </div>
+                    <div class="scenario-metric">
+                        <span>Duration:</span>
+                        <span><strong>6.0 hours</strong></span>
+                    </div>
+                    <div class="scenario-metric">
+                        <span>Max Unserved Load:</span>
+                        <span><strong>465 MW</strong></span>
+                    </div>
+                    <div class="scenario-metric">
+                        <span>Generation Loss:</span>
+                        <span><strong>24%</strong></span>
+                    </div>
+                </div>
+
+                <div class="scenario-card elliott">
+                    <h4>Winter Storm Elliott (December 2022)</h4>
+                    <div class="scenario-metric">
+                        <span>Reliability Score:</span>
+                        <span><strong>42.2%</strong></span>
+                    </div>
+                    <div class="scenario-metric">
+                        <span>Blackout Events:</span>
+                        <span><strong>8</strong></span>
+                    </div>
+                    <div class="scenario-metric">
+                        <span>Duration:</span>
+                        <span><strong>4.0 hours</strong></span>
+                    </div>
+                    <div class="scenario-metric">
+                        <span>Max Unserved Load:</span>
+                        <span><strong>350 MW</strong></span>
+                    </div>
+                    <div class="scenario-metric">
+                        <span>Generation Loss:</span>
+                        <span><strong>19%</strong></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Key Insights -->
+        <div class="section">
+            <h2>Key Insights & Recommendations</h2>
+
+            <h3>Critical Findings</h3>
+            <ul class="insight-list">
+                <li>All scenarios experienced frequency deviations greater than 1 Hz, indicating severe grid instability
+                </li>
+                <li>Texas winter event was most severe with 87% generation loss, highlighting extreme cold weather
+                    vulnerabilities</li>
+                <li>Cold weather scenarios show consistently worse performance than heat scenarios</li>
+                <li>Renewable penetration actually increased during blackouts due to thermal plant failures</li>
+                <li>Agent coordination breaks down after multiple simultaneous failures</li>
+                <li>Winter Storm Elliott showed improvement over Texas Uri, suggesting better preparedness over time
+                </li>
+            </ul>
+
+            <h3>Priority Recommendations</h3>
+            <ul class="recommendation-list">
+                <li><strong>Immediate:</strong> Implement comprehensive equipment winterization programs for all thermal
+                    generation assets</li>
+                <li><strong>Immediate:</strong> Deploy automatic emergency frequency response protocols with load
+                    shedding at 49.5 Hz threshold</li>
+                <li><strong>Medium-term:</strong> Increase battery storage capacity by 40% to provide grid stabilization
+                    during outages</li>
+                <li><strong>Medium-term:</strong> Enhance demand response programs with automated load reduction
+                    capabilities</li>
+                <li><strong>Long-term:</strong> Diversify fuel supply chains and add redundancy to prevent cascade
+                    failures</li>
+                <li><strong>Long-term:</strong> Deploy microgrids and distributed energy resources for enhanced
+                    resilience</li>
+            </ul>
+        </div>
+
+        <!-- Data Downloads -->
+        <div class="section">
+            <h2>Data & Downloads</h2>
+            <p>Access the raw data and detailed analysis reports:</p>
+            <ul>
+                <li><a href="blackout_visualizations/scenario_data.csv" download>Scenario Data (CSV)</a></li>
+                <li><a href="blackout_visualizations/analysis_summary.txt" download>Detailed Analysis Report (TXT)</a>
+                </li>
+                <li><a href="blackout_visualization.py" download>Visualization Source Code (Python)</a></li>
+                <li><a href="blackout_scenarios.py" download>Simulation Source Code (Python)</a></li>
+            </ul>
+        </div>
+    </div>
+</body>
+
+</html>

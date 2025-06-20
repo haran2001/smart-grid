@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Grid Real-Time Visualization</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a1a;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        button.danger {
+            background: #f44336;
+        }
+
+        button.danger:hover {
+            background: #da190b;
+        }
+
+        button.warning {
+            background: #ff9800;
+        }
+
+        button.warning:hover {
+            background: #e68900;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .charts-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .chart-panel {
+            background: #2a2a2a;
+            border-radius: 10px;
+            padding: 15px;
+        }
+
+        .chart-canvas {
+            border: 1px solid #444;
+            border-radius: 5px;
+            background: #000;
+            display: block;
+            width: 100%;
+        }
+
+        .canvas-container {
+            background: #2a2a2a;
+            border-radius: 10px;
+            padding: 20px;
+            position: relative;
+        }
+
+        #gridCanvas {
+            border: 2px solid #444;
+            border-radius: 8px;
+            display: block;
+            background: #000;
+        }
+
+        .metrics-panel {
+            background: #2a2a2a;
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .metric-card {
+            background: #333;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 4px solid #4CAF50;
+        }
+
+        .metric-card.warning {
+            border-left-color: #ff9800;
+        }
+
+        .metric-card.danger {
+            border-left-color: #f44336;
+        }
+
+        .metric-value {
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .metric-label {
+            color: #ccc;
+            font-size: 14px;
+        }
+
+        .agent-list {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #333;
+            border-radius: 8px;
+            padding: 10px;
+        }
+
+        .agent-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            margin-bottom: 5px;
+            background: #444;
+            border-radius: 4px;
+            border-left: 3px solid #4CAF50;
+        }
+
+        .agent-item.failed {
+            border-left-color: #f44336;
+            background: #4a2c2c;
+        }
+
+        .agent-item.warning {
+            border-left-color: #ff9800;
+            background: #4a3c2c;
+        }
+
+        .legend {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+        }
+
+        .speed-control {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin: 10px 0;
+        }
+
+        #speedSlider {
+            width: 150px;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Smart Grid Real-Time Visualization</h1>
+            <p>Live simulation of power grid blackout scenarios</p>
+        </div>
+
+        <div class="controls">
+            <button onclick="startSimulation()">Start Simulation</button>
+            <button onclick="pauseSimulation()" class="warning">Pause</button>
+            <button onclick="resetSimulation()" class="danger">Reset</button>
+            <select id="scenarioSelect" onchange="changeScenario()">
+                <option value="texas">Texas Winter Storm Uri (2021)</option>
+                <option value="california">California Heat Wave (2020)</option>
+                <option value="elliott">Winter Storm Elliott (2022)</option>
+            </select>
+        </div>
+
+        <div class="speed-control">
+            <label>Animation Speed:</label>
+            <input type="range" id="speedSlider" min="0.1" max="3" step="0.1" value="1" oninput="updateSpeed()">
+            <span id="speedValue">1.0x</span>
+        </div>
+
+        <div class="grid-container">
+            <div class="canvas-container">
+                <canvas id="gridCanvas" width="800" height="600"></canvas>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #4CAF50;"></div>
+                        <span>Normal</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #ff9800;"></div>
+                        <span>Warning</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #f44336;"></div>
+                        <span>Failed</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #2196F3;"></div>
+                        <span>Energy Flow</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color" style="background: #9C27B0;"></div>
+                        <span>Communication</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="metrics-panel">
+                <h3>System Metrics</h3>
+
+                <div class="metric-card" id="reliabilityCard">
+                    <div class="metric-value" id="reliabilityValue">98.5%</div>
+                    <div class="metric-label">System Reliability</div>
+                </div>
+
+                <div class="metric-card" id="frequencyCard">
+                    <div class="metric-value" id="frequencyValue">60.0 Hz</div>
+                    <div class="metric-label">Grid Frequency</div>
+                </div>
+
+                <div class="metric-card" id="loadCard">
+                    <div class="metric-value" id="loadValue">15.2 GW</div>
+                    <div class="metric-label">Total Load</div>
+                </div>
+
+                <div class="metric-card" id="generationCard">
+                    <div class="metric-value" id="generationValue">16.8 GW</div>
+                    <div class="metric-label">Total Generation</div>
+                </div>
+
+                <h4>Active Agents</h4>
+                <div class="agent-list" id="agentList"></div>
+
+                <h4>Event Log</h4>
+                <div class="agent-list" id="eventLog"></div>
+            </div>
+        </div>
+
+        <div class="charts-container">
+            <div class="chart-panel">
+                <h3>Energy Generation & Consumption</h3>
+                <canvas id="energyChart" class="chart-canvas" width="400" height="250"></canvas>
+            </div>
+
+            <div class="chart-panel">
+                <h3>System Performance Metrics</h3>
+                <canvas id="metricsChart" class="chart-canvas" width="400" height="250"></canvas>
+            </div>
+
+            <div class="chart-panel">
+                <h3>Communication & Coordination</h3>
+                <canvas id="commChart" class="chart-canvas" width="400" height="250"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let canvas, ctx;
+        let energyCanvas, energyCtx;
+        let metricsCanvas, metricsCtx;
+        let commCanvas, commCtx;
+        let animationId;
+        let simulationRunning = false;
+        let animationSpeed = 1.0;
+        let currentTime = 0;
+        let agents = [];
+        let connections = [];
+        let events = [];
+        let currentScenario = 'texas';
+
+        // Historical data for charts
+        let chartHistory = {
+            time: [],
+            generation: [],
+            load: [],
+            unservedLoad: [],
+            frequency: [],
+            agentsActive: [],
+            agentsFailed: [],
+            communications: [],
+            blackoutEvents: []
+        };
+
+        // Simulation data
+        const scenarios = {
+            texas: {
+                name: "Texas Winter Storm Uri",
+                duration: 180, // 3 minutes simulation
+                events: [
+                    { time: 20, type: 'failure', agent: 'Coal_Plant_1', message: 'Coal plant frozen' },
+                    { time: 35, type: 'failure', agent: 'Gas_Plant_2', message: 'Gas supply disrupted' },
+                    { time: 50, type: 'warning', agent: 'Wind_Farm_1', message: 'Turbines icing up' },
+                    { time: 65, type: 'failure', agent: 'Wind_Farm_1', message: 'Wind farm offline' },
+                    { time: 80, type: 'failure', agent: 'Nuclear_Plant_1', message: 'Reactor shutdown' },
+                    { time: 120, type: 'recovery', agent: 'Gas_Plant_1', message: 'Backup gas online' },
+                    { time: 140, type: 'recovery', agent: 'Solar_Farm_1', message: 'Solar farm restored' },
+                ],
+                criticalTime: 65
+            },
+            california: {
+                name: "California Heat Wave",
+                duration: 150,
+                events: [
+                    { time: 25, type: 'warning', agent: 'Solar_Farm_1', message: 'Extreme heat reducing efficiency' },
+                    { time: 40, type: 'failure', agent: 'Gas_Plant_1', message: 'Cooling system overload' },
+                    { time: 55, type: 'warning', agent: 'Wind_Farm_1', message: 'Low wind conditions' },
+                    { time: 70, type: 'failure', agent: 'Transmission_Line_2', message: 'Line sag from heat' },
+                    { time: 100, type: 'recovery', agent: 'Gas_Plant_1', message: 'Emergency cooling activated' },
+                    { time: 130, type: 'recovery', agent: 'Battery_Storage_1', message: 'Energy storage deployed' },
+                ],
+                criticalTime: 70
+            },
+            elliott: {
+                name: "Winter Storm Elliott",
+                duration: 200,
+                events: [
+                    { time: 30, type: 'warning', agent: 'Wind_Farm_1', message: 'High winds detected' },
+                    { time: 45, type: 'failure', agent: 'Transmission_Line_1', message: 'Line down from ice' },
+                    { time: 60, type: 'warning', agent: 'Coal_Plant_1', message: 'Fuel delivery issues' },
+                    { time: 90, type: 'failure', agent: 'Gas_Plant_1', message: 'Wellhead freeze' },
+                    { time: 120, type: 'warning', agent: 'Nuclear_Plant_1', message: 'Grid instability' },
+                    { time: 150, type: 'recovery', agent: 'Hydro_Plant_1', message: 'Hydro ramping up' },
+                    { time: 180, type: 'recovery', agent: 'Gas_Plant_1', message: 'Fuel supply restored' },
+                ],
+                criticalTime: 90
+            }
+        };
+
+        // Initialize
+        function init() {
+            canvas = document.getElementById('gridCanvas');
+            ctx = canvas.getContext('2d');
+
+            // Initialize chart canvases
+            energyCanvas = document.getElementById('energyChart');
+            energyCtx = energyCanvas.getContext('2d');
+
+            metricsCanvas = document.getElementById('metricsChart');
+            metricsCtx = metricsCanvas.getContext('2d');
+
+            commCanvas = document.getElementById('commChart');
+            commCtx = commCanvas.getContext('2d');
+
+            setupAgents();
+            setupConnections();
+            updateMetrics();
+            updateAgentList();
+
+            // Start animation loop
+            animate();
+        }
+
+        function setupAgents() {
+            agents = [
+                // Generators
+                { id: 'Nuclear_Plant_1', type: 'nuclear', x: 100, y: 100, status: 'normal', capacity: 1200, output: 1200 },
+                { id: 'Coal_Plant_1', type: 'coal', x: 200, y: 150, status: 'normal', capacity: 800, output: 800 },
+                { id: 'Gas_Plant_1', type: 'gas', x: 300, y: 100, status: 'normal', capacity: 600, output: 600 },
+                { id: 'Gas_Plant_2', type: 'gas', x: 400, y: 200, status: 'normal', capacity: 400, output: 400 },
+                { id: 'Wind_Farm_1', type: 'wind', x: 150, y: 300, status: 'normal', capacity: 500, output: 450 },
+                { id: 'Solar_Farm_1', type: 'solar', x: 300, y: 300, status: 'normal', capacity: 300, output: 280 },
+                { id: 'Hydro_Plant_1', type: 'hydro', x: 500, y: 150, status: 'normal', capacity: 200, output: 200 },
+
+                // Storage
+                { id: 'Battery_Storage_1', type: 'battery', x: 400, y: 350, status: 'normal', capacity: 100, output: 0 },
+
+                // Transmission
+                { id: 'Transmission_Line_1', type: 'transmission', x: 250, y: 250, status: 'normal', capacity: 2000, flow: 1500 },
+                { id: 'Transmission_Line_2', type: 'transmission', x: 350, y: 250, status: 'normal', capacity: 1500, flow: 1000 },
+
+                // Load Centers
+                { id: 'City_Load_1', type: 'load', x: 600, y: 200, status: 'normal', demand: 2000 },
+                { id: 'Industrial_Load_1', type: 'load', x: 650, y: 300, status: 'normal', demand: 1500 },
+                { id: 'Residential_Load_1', type: 'load', x: 550, y: 350, status: 'normal', demand: 800 },
+            ];
+        }
+
+        function setupConnections() {
+            connections = [
+                { from: 'Nuclear_Plant_1', to: 'Transmission_Line_1', type: 'power' },
+                { from: 'Coal_Plant_1', to: 'Transmission_Line_1', type: 'power' },
+                { from: 'Gas_Plant_1', to: 'Transmission_Line_2', type: 'power' },
+                { from: 'Gas_Plant_2', to: 'Transmission_Line_2', type: 'power' },
+                { from: 'Wind_Farm_1', to: 'Transmission_Line_1', type: 'power' },
+                { from: 'Solar_Farm_1', to: 'Transmission_Line_2', type: 'power' },
+                { from: 'Hydro_Plant_1', to: 'City_Load_1', type: 'power' },
+                { from: 'Transmission_Line_1', to: 'City_Load_1', type: 'power' },
+                { from: 'Transmission_Line_2', to: 'Industrial_Load_1', type: 'power' },
+                { from: 'Battery_Storage_1', to: 'Residential_Load_1', type: 'power' },
+
+                // Communication links
+                { from: 'Nuclear_Plant_1', to: 'Coal_Plant_1', type: 'comm' },
+                { from: 'Gas_Plant_1', to: 'Gas_Plant_2', type: 'comm' },
+                { from: 'Wind_Farm_1', to: 'Solar_Farm_1', type: 'comm' },
+            ];
+        }
+
+        function animate() {
+            if (simulationRunning) {
+                currentTime += 0.1 * animationSpeed;
+                processEvents();
+                updateSimulation();
+            }
+
+            draw();
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function draw() {
+            // Clear canvas
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw connections first (behind agents)
+            drawConnections();
+
+            // Draw agents
+            drawAgents();
+
+            // Draw energy flows
+            drawEnergyFlows();
+
+            // Draw communication signals
+            drawCommunications();
+
+            // Draw timeline
+            drawTimeline();
+        }
+
+        function drawAgents() {
+            agents.forEach(agent => {
+                const colors = {
+                    normal: '#4CAF50',
+                    warning: '#ff9800',
+                    failed: '#f44336'
+                };
+
+                const typeColors = {
+                    nuclear: '#9C27B0',
+                    coal: '#795548',
+                    gas: '#2196F3',
+                    wind: '#00BCD4',
+                    solar: '#FFC107',
+                    hydro: '#3F51B5',
+                    battery: '#E91E63',
+                    transmission: '#607D8B',
+                    load: '#FF5722'
+                };
+
+                // Draw agent circle
+                ctx.beginPath();
+                ctx.arc(agent.x, agent.y, 15, 0, 2 * Math.PI);
+                ctx.fillStyle = colors[agent.status];
+                ctx.fill();
+                ctx.strokeStyle = typeColors[agent.type];
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                // Draw agent label
+                ctx.fillStyle = '#fff';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText(agent.id.replace(/_/g, ' '), agent.x, agent.y - 25);
+
+                // Draw capacity/output info
+                if (agent.output !== undefined) {
+                    ctx.fillText(`${agent.output}MW`, agent.x, agent.y + 30);
+                } else if (agent.demand !== undefined) {
+                    ctx.fillText(`${agent.demand}MW`, agent.x, agent.y + 30);
+                }
+            });
+        }
+
+        function drawConnections() {
+            connections.forEach(conn => {
+                const fromAgent = agents.find(a => a.id === conn.from);
+                const toAgent = agents.find(a => a.id === conn.to);
+
+                if (!fromAgent || !toAgent) return;
+
+                ctx.beginPath();
+                ctx.moveTo(fromAgent.x, fromAgent.y);
+                ctx.lineTo(toAgent.x, toAgent.y);
+
+                if (conn.type === 'power') {
+                    ctx.strokeStyle = 'rgba(33, 150, 243, 0.3)';
+                    ctx.lineWidth = 2;
+                } else {
+                    ctx.strokeStyle = 'rgba(156, 39, 176, 0.3)';
+                    ctx.lineWidth = 1;
+                    ctx.setLineDash([5, 5]);
+                }
+
+                ctx.stroke();
+                ctx.setLineDash([]);
+            });
+        }
+
+        function drawEnergyFlows() {
+            const time = Date.now() * 0.005;
+
+            connections.filter(c => c.type === 'power').forEach((conn, index) => {
+                const fromAgent = agents.find(a => a.id === conn.from);
+                const toAgent = agents.find(a => a.id === conn.to);
+
+                if (!fromAgent || !toAgent || fromAgent.status === 'failed' || toAgent.status === 'failed') return;
+
+                // Animate energy particles
+                for (let i = 0; i < 3; i++) {
+                    const progress = ((time + index * 0.5 + i * 0.3) % 1);
+                    const x = fromAgent.x + (toAgent.x - fromAgent.x) * progress;
+                    const y = fromAgent.y + (toAgent.y - fromAgent.y) * progress;
+
+                    ctx.beginPath();
+                    ctx.arc(x, y, 3, 0, 2 * Math.PI);
+                    ctx.fillStyle = `rgba(33, 150, 243, ${1 - progress})`;
+                    ctx.fill();
+                }
+            });
+        }
+
+        function drawCommunications() {
+            const time = Date.now() * 0.008;
+
+            connections.filter(c => c.type === 'comm').forEach((conn, index) => {
+                const fromAgent = agents.find(a => a.id === conn.from);
+                const toAgent = agents.find(a => a.id === conn.to);
+
+                if (!fromAgent || !toAgent) return;
+
+                // Animate communication pulses
+                const progress = (time + index * 0.7) % 1;
+                const x = fromAgent.x + (toAgent.x - fromAgent.x) * progress;
+                const y = fromAgent.y + (toAgent.y - fromAgent.y) * progress;
+
+                ctx.beginPath();
+                ctx.arc(x, y, 2, 0, 2 * Math.PI);
+                ctx.fillStyle = `rgba(156, 39, 176, ${Math.sin(progress * Math.PI)})`;
+                ctx.fill();
+            });
+        }
+
+        function drawTimeline() {
+            const scenario = scenarios[currentScenario];
+            const progress = currentTime / scenario.duration;
+
+            // Timeline bar
+            ctx.fillStyle = '#333';
+            ctx.fillRect(50, 550, 700, 20);
+
+            // Progress
+            ctx.fillStyle = '#4CAF50';
+            ctx.fillRect(50, 550, 700 * progress, 20);
+
+            // Current time
+            ctx.fillStyle = '#fff';
+            ctx.font = '12px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${Math.floor(currentTime)}s / ${scenario.duration}s`, 400, 540);
+
+            // Event markers
+            scenario.events.forEach(event => {
+                const eventX = 50 + (event.time / scenario.duration) * 700;
+                ctx.beginPath();
+                ctx.moveTo(eventX, 550);
+                ctx.lineTo(eventX, 570);
+                ctx.strokeStyle = event.type === 'failure' ? '#f44336' :
+                    event.type === 'warning' ? '#ff9800' : '#4CAF50';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            });
+        }
+
+        function processEvents() {
+            const scenario = scenarios[currentScenario];
+            scenario.events.forEach(event => {
+                if (Math.abs(currentTime - event.time) < 0.1) {
+                    const agent = agents.find(a => a.id === event.agent);
+                    if (agent) {
+                        agent.status = event.type === 'recovery' ? 'normal' : event.type;
+                        if (event.type === 'failure') {
+                            agent.output = agent.output ? 0 : agent.output;
+                        } else if (event.type === 'recovery') {
+                            agent.output = agent.capacity || agent.output;
+                        }
+
+                        addEventToLog(event);
+                    }
+                }
+            });
+        }
+
+        function updateSimulation() {
+            // Update system metrics based on agent status
+            const totalCapacity = agents.filter(a => a.capacity).reduce((sum, a) => sum + a.capacity, 0);
+            const activeOutput = agents.filter(a => a.output && a.status !== 'failed').reduce((sum, a) => sum + a.output, 0);
+            const totalDemand = agents.filter(a => a.demand).reduce((sum, a) => sum + a.demand, 0);
+            const failedAgents = agents.filter(a => a.status === 'failed').length;
+            const activeAgents = agents.length - failedAgents;
+
+            const reliability = (activeOutput / totalCapacity * 100).toFixed(1);
+            const frequency = (60 + (activeOutput - totalDemand) / totalDemand * 2).toFixed(1);
+            const unservedLoad = Math.max(0, totalDemand - activeOutput);
+
+            // Store data for charts
+            const timeInMinutes = currentTime / 60; // Convert to minutes for better scale
+            chartHistory.time.push(timeInMinutes);
+            chartHistory.generation.push(activeOutput);
+            chartHistory.load.push(totalDemand);
+            chartHistory.unservedLoad.push(unservedLoad);
+            chartHistory.frequency.push(parseFloat(frequency));
+            chartHistory.agentsActive.push(activeAgents);
+            chartHistory.agentsFailed.push(failedAgents);
+
+            // Communication overhead calculation (similar to Python version)
+            const baseComm = 50;
+            const stressComm = failedAgents * 50 + Math.max(0, (totalDemand - activeOutput) / totalDemand * 1000);
+            const commVolume = baseComm + stressComm;
+            chartHistory.communications.push(commVolume);
+
+            // Blackout detection
+            const blackoutActive = frequency < 59.5 || frequency > 60.5 || activeOutput < totalDemand * 0.9;
+            chartHistory.blackoutEvents.push(blackoutActive ? 1 : 0);
+
+            // Keep only last 100 data points for performance
+            if (chartHistory.time.length > 100) {
+                Object.keys(chartHistory).forEach(key => {
+                    chartHistory[key] = chartHistory[key].slice(-100);
+                });
+            }
+
+            updateMetrics(reliability, frequency, totalDemand / 1000, activeOutput / 1000);
+            updateAgentList();
+
+            // Draw charts
+            drawEnergyChart();
+            drawMetricsChart();
+            drawCommChart();
+
+            // Reset simulation if complete
+            if (currentTime >= scenarios[currentScenario].duration) {
+                resetSimulation();
+            }
+        }
+
+        function updateMetrics(reliability = 98.5, frequency = 60.0, load = 15.2, generation = 16.8) {
+            document.getElementById('reliabilityValue').textContent = reliability + '%';
+            document.getElementById('frequencyValue').textContent = frequency + ' Hz';
+            document.getElementById('loadValue').textContent = load.toFixed(1) + ' GW';
+            document.getElementById('generationValue').textContent = generation.toFixed(1) + ' GW';
+
+            // Update card colors based on values
+            const reliabilityCard = document.getElementById('reliabilityCard');
+            const frequencyCard = document.getElementById('frequencyCard');
+
+            reliabilityCard.className = reliability < 80 ? 'metric-card danger' :
+                reliability < 90 ? 'metric-card warning' : 'metric-card';
+
+            frequencyCard.className = Math.abs(frequency - 60) > 1 ? 'metric-card danger' :
+                Math.abs(frequency - 60) > 0.5 ? 'metric-card warning' : 'metric-card';
+        }
+
+        function updateAgentList() {
+            const agentList = document.getElementById('agentList');
+            agentList.innerHTML = '';
+
+            agents.forEach(agent => {
+                const div = document.createElement('div');
+                div.className = `agent-item ${agent.status}`;
+
+                const name = document.createElement('span');
+                name.textContent = agent.id.replace(/_/g, ' ');
+
+                const status = document.createElement('span');
+                status.textContent = agent.status.toUpperCase();
+
+                div.appendChild(name);
+                div.appendChild(status);
+                agentList.appendChild(div);
+            });
+        }
+
+        function addEventToLog(event) {
+            const eventLog = document.getElementById('eventLog');
+            const div = document.createElement('div');
+            div.className = `agent-item ${event.type}`;
+            div.innerHTML = `
+                <span>${Math.floor(currentTime)}s: ${event.message}</span>
+                <span>${event.type.toUpperCase()}</span>
+            `;
+
+            eventLog.insertBefore(div, eventLog.firstChild);
+
+            // Keep only last 10 events
+            while (eventLog.children.length > 10) {
+                eventLog.removeChild(eventLog.lastChild);
+            }
+        }
+
+        function drawEnergyChart() {
+            if (chartHistory.time.length < 2) return;
+
+            energyCtx.fillStyle = '#000';
+            energyCtx.fillRect(0, 0, energyCanvas.width, energyCanvas.height);
+
+            const width = energyCanvas.width;
+            const height = energyCanvas.height;
+            const padding = 40;
+            const chartWidth = width - 2 * padding;
+            const chartHeight = height - 2 * padding;
+
+            // Find data ranges
+            const maxTime = Math.max(...chartHistory.time);
+            const minTime = Math.min(...chartHistory.time);
+            const maxPower = Math.max(...chartHistory.generation, ...chartHistory.load) * 1.1;
+
+            // Draw axes
+            energyCtx.strokeStyle = '#666';
+            energyCtx.lineWidth = 1;
+            energyCtx.beginPath();
+            energyCtx.moveTo(padding, padding);
+            energyCtx.lineTo(padding, height - padding);
+            energyCtx.lineTo(width - padding, height - padding);
+            energyCtx.stroke();
+
+            // Draw grid lines
+            energyCtx.strokeStyle = '#333';
+            for (let i = 1; i < 5; i++) {
+                const y = padding + (chartHeight * i / 5);
+                energyCtx.beginPath();
+                energyCtx.moveTo(padding, y);
+                energyCtx.lineTo(width - padding, y);
+                energyCtx.stroke();
+            }
+
+            // Draw labels
+            energyCtx.fillStyle = '#fff';
+            energyCtx.font = '12px Arial';
+            energyCtx.textAlign = 'center';
+            energyCtx.fillText('Time (min)', width / 2, height - 5);
+
+            energyCtx.save();
+            energyCtx.translate(15, height / 2);
+            energyCtx.rotate(-Math.PI / 2);
+            energyCtx.fillText('Power (MW)', 0, 0);
+            energyCtx.restore();
+
+            // Helper function to convert data to screen coordinates
+            function getScreenCoords(timeVal, powerVal) {
+                const x = padding + ((timeVal - minTime) / (maxTime - minTime || 1)) * chartWidth;
+                const y = height - padding - (powerVal / maxPower) * chartHeight;
+                return { x, y };
+            }
+
+            // Draw generation line
+            energyCtx.strokeStyle = '#4CAF50';
+            energyCtx.lineWidth = 2;
+            energyCtx.beginPath();
+            for (let i = 0; i < chartHistory.time.length; i++) {
+                const coords = getScreenCoords(chartHistory.time[i], chartHistory.generation[i]);
+                if (i === 0) energyCtx.moveTo(coords.x, coords.y);
+                else energyCtx.lineTo(coords.x, coords.y);
+            }
+            energyCtx.stroke();
+
+            // Draw load line
+            energyCtx.strokeStyle = '#2196F3';
+            energyCtx.lineWidth = 2;
+            energyCtx.beginPath();
+            for (let i = 0; i < chartHistory.time.length; i++) {
+                const coords = getScreenCoords(chartHistory.time[i], chartHistory.load[i]);
+                if (i === 0) energyCtx.moveTo(coords.x, coords.y);
+                else energyCtx.lineTo(coords.x, coords.y);
+            }
+            energyCtx.stroke();
+
+            // Fill unserved load area
+            if (chartHistory.unservedLoad.some(val => val > 0)) {
+                energyCtx.fillStyle = 'rgba(244, 67, 54, 0.3)';
+                energyCtx.beginPath();
+                for (let i = 0; i < chartHistory.time.length; i++) {
+                    const loadCoords = getScreenCoords(chartHistory.time[i], chartHistory.load[i]);
+                    const servedCoords = getScreenCoords(chartHistory.time[i], chartHistory.load[i] - chartHistory.unservedLoad[i]);
+                    if (i === 0) {
+                        energyCtx.moveTo(loadCoords.x, loadCoords.y);
+                    } else {
+                        energyCtx.lineTo(loadCoords.x, loadCoords.y);
+                    }
+                }
+                for (let i = chartHistory.time.length - 1; i >= 0; i--) {
+                    const servedCoords = getScreenCoords(chartHistory.time[i], chartHistory.load[i] - chartHistory.unservedLoad[i]);
+                    energyCtx.lineTo(servedCoords.x, servedCoords.y);
+                }
+                energyCtx.closePath();
+                energyCtx.fill();
+            }
+
+            // Draw legend
+            energyCtx.fillStyle = '#4CAF50';
+            energyCtx.fillRect(width - 120, 20, 15, 10);
+            energyCtx.fillStyle = '#fff';
+            energyCtx.textAlign = 'left';
+            energyCtx.fillText('Generation', width - 100, 30);
+
+            energyCtx.fillStyle = '#2196F3';
+            energyCtx.fillRect(width - 120, 35, 15, 10);
+            energyCtx.fillStyle = '#fff';
+            energyCtx.fillText('Load', width - 100, 45);
+
+            energyCtx.fillStyle = 'rgba(244, 67, 54, 0.5)';
+            energyCtx.fillRect(width - 120, 50, 15, 10);
+            energyCtx.fillStyle = '#fff';
+            energyCtx.fillText('Unserved', width - 100, 60);
+        }
+
+        function drawMetricsChart() {
+            if (chartHistory.time.length < 2) return;
+
+            metricsCtx.fillStyle = '#000';
+            metricsCtx.fillRect(0, 0, metricsCanvas.width, metricsCanvas.height);
+
+            const width = metricsCanvas.width;
+            const height = metricsCanvas.height;
+            const padding = 40;
+            const chartWidth = width - 2 * padding;
+            const chartHeight = height - 2 * padding;
+
+            // Find data ranges
+            const maxTime = Math.max(...chartHistory.time);
+            const minTime = Math.min(...chartHistory.time);
+            const maxFreq = Math.max(...chartHistory.frequency);
+            const minFreq = Math.min(...chartHistory.frequency);
+            const maxAgents = Math.max(...chartHistory.agentsActive);
+
+            // Draw axes
+            metricsCtx.strokeStyle = '#666';
+            metricsCtx.lineWidth = 1;
+            metricsCtx.beginPath();
+            metricsCtx.moveTo(padding, padding);
+            metricsCtx.lineTo(padding, height - padding);
+            metricsCtx.lineTo(width - padding, height - padding);
+            metricsCtx.stroke();
+
+            // Draw grid
+            metricsCtx.strokeStyle = '#333';
+            for (let i = 1; i < 5; i++) {
+                const y = padding + (chartHeight * i / 5);
+                metricsCtx.beginPath();
+                metricsCtx.moveTo(padding, y);
+                metricsCtx.lineTo(width - padding, y);
+                metricsCtx.stroke();
+            }
+
+            // Draw frequency reference lines
+            metricsCtx.strokeStyle = '#4CAF50';
+            metricsCtx.setLineDash([5, 5]);
+            const normalFreqY = height - padding - ((60 - minFreq) / (maxFreq - minFreq || 1)) * chartHeight;
+            metricsCtx.beginPath();
+            metricsCtx.moveTo(padding, normalFreqY);
+            metricsCtx.lineTo(width - padding, normalFreqY);
+            metricsCtx.stroke();
+
+            metricsCtx.strokeStyle = '#f44336';
+            const criticalFreqY = height - padding - ((59.5 - minFreq) / (maxFreq - minFreq || 1)) * chartHeight;
+            metricsCtx.beginPath();
+            metricsCtx.moveTo(padding, criticalFreqY);
+            metricsCtx.lineTo(width - padding, criticalFreqY);
+            metricsCtx.stroke();
+            metricsCtx.setLineDash([]);
+
+            // Helper function for frequency coordinates
+            function getFreqCoords(timeVal, freqVal) {
+                const x = padding + ((timeVal - minTime) / (maxTime - minTime || 1)) * chartWidth;
+                const y = height - padding - ((freqVal - minFreq) / (maxFreq - minFreq || 1)) * chartHeight;
+                return { x, y };
+            }
+
+            // Helper function for agent coordinates
+            function getAgentCoords(timeVal, agentVal) {
+                const x = padding + ((timeVal - minTime) / (maxTime - minTime || 1)) * chartWidth;
+                const y = height - padding - (agentVal / maxAgents) * chartHeight;
+                return { x, y };
+            }
+
+            // Draw frequency line (left axis)
+            metricsCtx.strokeStyle = '#ff9800';
+            metricsCtx.lineWidth = 2;
+            metricsCtx.beginPath();
+            for (let i = 0; i < chartHistory.time.length; i++) {
+                const coords = getFreqCoords(chartHistory.time[i], chartHistory.frequency[i]);
+                if (i === 0) metricsCtx.moveTo(coords.x, coords.y);
+                else metricsCtx.lineTo(coords.x, coords.y);
+            }
+            metricsCtx.stroke();
+
+            // Draw active agents line (right axis, scaled)
+            metricsCtx.strokeStyle = '#00BCD4';
+            metricsCtx.lineWidth = 2;
+            metricsCtx.beginPath();
+            for (let i = 0; i < chartHistory.time.length; i++) {
+                const coords = getAgentCoords(chartHistory.time[i], chartHistory.agentsActive[i]);
+                if (i === 0) metricsCtx.moveTo(coords.x, coords.y);
+                else metricsCtx.lineTo(coords.x, coords.y);
+            }
+            metricsCtx.stroke();
+
+            // Draw labels
+            metricsCtx.fillStyle = '#fff';
+            metricsCtx.font = '12px Arial';
+            metricsCtx.textAlign = 'center';
+            metricsCtx.fillText('Time (min)', width / 2, height - 5);
+
+            // Draw legend
+            metricsCtx.fillStyle = '#ff9800';
+            metricsCtx.fillRect(width - 140, 20, 15, 10);
+            metricsCtx.fillStyle = '#fff';
+            metricsCtx.textAlign = 'left';
+            metricsCtx.fillText('Frequency (Hz)', width - 120, 30);
+
+            metricsCtx.fillStyle = '#00BCD4';
+            metricsCtx.fillRect(width - 140, 35, 15, 10);
+            metricsCtx.fillStyle = '#fff';
+            metricsCtx.fillText('Active Agents', width - 120, 45);
+        }
+
+        function drawCommChart() {
+            if (chartHistory.time.length < 2) return;
+
+            commCtx.fillStyle = '#000';
+            commCtx.fillRect(0, 0, commCanvas.width, commCanvas.height);
+
+            const width = commCanvas.width;
+            const height = commCanvas.height;
+            const padding = 40;
+            const chartWidth = width - 2 * padding;
+            const chartHeight = height - 2 * padding;
+
+            // Find data ranges
+            const maxTime = Math.max(...chartHistory.time);
+            const minTime = Math.min(...chartHistory.time);
+            const maxComm = Math.max(...chartHistory.communications) * 1.1;
+
+            // Draw axes
+            commCtx.strokeStyle = '#666';
+            commCtx.lineWidth = 1;
+            commCtx.beginPath();
+            commCtx.moveTo(padding, padding);
+            commCtx.lineTo(padding, height - padding);
+            commCtx.lineTo(width - padding, height - padding);
+            commCtx.stroke();
+
+            // Draw grid
+            commCtx.strokeStyle = '#333';
+            for (let i = 1; i < 5; i++) {
+                const y = padding + (chartHeight * i / 5);
+                commCtx.beginPath();
+                commCtx.moveTo(padding, y);
+                commCtx.lineTo(width - padding, y);
+                commCtx.stroke();
+            }
+
+            // Helper function
+            function getCommCoords(timeVal, commVal) {
+                const x = padding + ((timeVal - minTime) / (maxTime - minTime || 1)) * chartWidth;
+                const y = height - padding - (commVal / maxComm) * chartHeight;
+                return { x, y };
+            }
+
+            // Draw blackout periods
+            commCtx.fillStyle = 'rgba(244, 67, 54, 0.3)';
+            for (let i = 0; i < chartHistory.time.length; i++) {
+                if (chartHistory.blackoutEvents[i]) {
+                    const coords = getCommCoords(chartHistory.time[i], 0);
+                    commCtx.fillRect(coords.x - 2, padding, 4, chartHeight);
+                }
+            }
+
+            // Draw communication volume line
+            commCtx.strokeStyle = '#9C27B0';
+            commCtx.lineWidth = 2;
+            commCtx.beginPath();
+            for (let i = 0; i < chartHistory.time.length; i++) {
+                const coords = getCommCoords(chartHistory.time[i], chartHistory.communications[i]);
+                if (i === 0) commCtx.moveTo(coords.x, coords.y);
+                else commCtx.lineTo(coords.x, coords.y);
+            }
+            commCtx.stroke();
+
+            // Draw labels
+            commCtx.fillStyle = '#fff';
+            commCtx.font = '12px Arial';
+            commCtx.textAlign = 'center';
+            commCtx.fillText('Time (min)', width / 2, height - 5);
+
+            commCtx.save();
+            commCtx.translate(15, height / 2);
+            commCtx.rotate(-Math.PI / 2);
+            commCtx.fillText('Messages/Hour', 0, 0);
+            commCtx.restore();
+
+            // Draw legend
+            commCtx.fillStyle = '#9C27B0';
+            commCtx.fillRect(width - 140, 20, 15, 10);
+            commCtx.fillStyle = '#fff';
+            commCtx.textAlign = 'left';
+            commCtx.fillText('Message Volume', width - 120, 30);
+
+            commCtx.fillStyle = 'rgba(244, 67, 54, 0.5)';
+            commCtx.fillRect(width - 140, 35, 15, 10);
+            commCtx.fillStyle = '#fff';
+            commCtx.fillText('Blackout Events', width - 120, 45);
+        }
+
+        // Control functions
+        function startSimulation() {
+            simulationRunning = true;
+        }
+
+        function pauseSimulation() {
+            simulationRunning = false;
+        }
+
+        function resetSimulation() {
+            simulationRunning = false;
+            currentTime = 0;
+            setupAgents();
+            document.getElementById('eventLog').innerHTML = '';
+
+            // Clear chart history
+            chartHistory = {
+                time: [],
+                generation: [],
+                load: [],
+                unservedLoad: [],
+                frequency: [],
+                agentsActive: [],
+                agentsFailed: [],
+                communications: [],
+                blackoutEvents: []
+            };
+
+            // Clear charts
+            if (energyCtx) {
+                energyCtx.fillStyle = '#000';
+                energyCtx.fillRect(0, 0, energyCanvas.width, energyCanvas.height);
+            }
+            if (metricsCtx) {
+                metricsCtx.fillStyle = '#000';
+                metricsCtx.fillRect(0, 0, metricsCanvas.width, metricsCanvas.height);
+            }
+            if (commCtx) {
+                commCtx.fillStyle = '#000';
+                commCtx.fillRect(0, 0, commCanvas.width, commCanvas.height);
+            }
+
+            updateMetrics();
+            updateAgentList();
+        }
+
+        function changeScenario() {
+            currentScenario = document.getElementById('scenarioSelect').value;
+            resetSimulation();
+        }
+
+        function updateSpeed() {
+            const slider = document.getElementById('speedSlider');
+            animationSpeed = parseFloat(slider.value);
+            document.getElementById('speedValue').textContent = animationSpeed.toFixed(1) + 'x';
+        }
+
+        // Initialize when page loads
+        window.onload = init;
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,37 @@
+BLACKOUT SCENARIO ANALYSIS SUMMARY
+==================================================
+
+OVERVIEW:
+   Total scenarios analyzed: 3
+   Average reliability score: 40.3%
+   Total blackout events: 40
+   Total blackout duration: 20.0 hours
+
+BEST PERFORMING:
+   Winter Storm Elliott (December 2022)
+   Reliability: 42.2%
+   Blackout events: 8
+
+WORST PERFORMING:
+   Texas Winter Storm Uri (February 2021)
+   Reliability: 37.9%
+   Blackout events: 20
+
+WEATHER IMPACT ANALYSIS:
+   Cold weather avg reliability: 40.0%
+   Heat weather avg reliability: 40.8%
+   Cold weather is -0.8% less reliable
+
+KEY INSIGHTS:
+   * All scenarios experienced frequency deviations > 1 Hz
+   * Texas winter event was most severe (87% generation loss)
+   * Cold weather scenarios show worse performance than heat
+   * Renewable penetration increased during blackouts
+   * Agent coordination breaks down after multiple failures
+
+RECOMMENDATIONS:
+   * Implement comprehensive equipment winterization
+   * Deploy automatic emergency frequency response
+   * Increase battery storage capacity by 40%
+   * Enhance demand response programs
+   * Improve agent communication protocols

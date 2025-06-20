@@ -1,0 +1,4 @@
+Scenario,Type,Reliability Score,Blackout Events,Blackout Duration (hrs),Max Unserved Load (MW),Frequency Deviation,Renewable Penetration,Peak Demand (MW),Min Generation (MW),Scenario Key
+Texas Winter Storm Uri (February 2021),extreme_cold,37.85,20,10.0,1399.0,1.19,30.2,1610.0,211.0,texas_winter_uri
+California Heat Wave (August 2020),extreme_heat,40.84,12,6.0,465.0,1.11,35.8,1946.0,1481.0,california_heat_wave
+Winter Storm Elliott (December 2022),extreme_cold,42.16,8,4.0,350.0,1.34,28.5,1800.0,1450.0,winter_storm_elliott
