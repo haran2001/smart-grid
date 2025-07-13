@@ -414,14 +414,191 @@ smart-grid/
 │   │   └── pre_training.py       # Model pre-training system
 │   ├── coordination/             # System coordination
 │   │   └── multi_agent_system.py # Main simulation engine
+│   ├── dashboard/                # Advanced analytics dashboard
+│   │   ├── dashboard_generator.py # Main dashboard engine (515+ lines)
+│   │   ├── run_dashboard.py      # Interactive launcher
+│   │   └── test_dashboard.py     # Testing framework
 │   └── visualization/            # Dashboard and monitoring
 │       └── dashboard.py          # Streamlit web interface
+├── renewable_energy_integration_studies/ # Advanced renewable analysis
+│   ├── renewable_stress_tests.py # Comprehensive stress testing framework
+│   ├── run_stress_tests.py       # Interactive test runner
+│   ├── demo_stress_test.py       # Demonstration scenarios
+│   └── renewable_stress_results/ # Test results and analysis
+├── blackout_studies/             # Blackout scenario analysis
+│   ├── blackout_scenarios.py     # Historical blackout modeling
+│   ├── blackout_visualization.py # Visualization tools
+│   └── blackout_frames/          # Animation frames
+├── market_studies/               # Market mechanism analysis
+│   ├── market_mechanism_experiments.py # Market testing framework
+│   └── visualize_market_experiments.py # Market analysis tools
+├── experiments/                  # General experimentation framework
+│   ├── experiments_framework.py  # Core testing infrastructure
+│   └── market_experiments.py     # Market-specific experiments
 ├── demo.py                       # Basic demonstration script
 ├── demo_with_training.py         # Full training pipeline demo
+├── dashboard.py                  # Main dashboard launcher
 ├── generate_training_data.py     # Standalone data generation
 ├── requirements.txt              # Python dependencies
 └── README.md                     # This file
 ```
+
+## 🔬 Advanced Research & Analysis Capabilities
+
+### 🌱 Renewable Energy Integration Studies
+
+A comprehensive analysis framework for testing renewable energy integration challenges and system resilience under various stress scenarios.
+
+#### **Key Research Questions Addressed**
+1. **Variability and Intermittency**: How does the system handle unpredictable solar/wind patterns?
+2. **Power Quality Issues**: Can the grid maintain frequency and voltage stability with high renewable penetration?
+3. **Deep Penetration Scenarios**: What happens during "duck curve" challenges with 70%+ renewable penetration?
+4. **Storage Integration**: How effectively do battery systems provide grid stabilization?
+5. **Market Mechanism Stress**: Do pricing mechanisms work under extreme renewable variability?
+
+#### **Stress Testing Framework** (`renewable_energy_integration_studies/`)
+- **renewable_stress_tests.py** (515 lines): Comprehensive testing engine with real-time monitoring
+- **run_stress_tests.py**: Interactive menu-driven test runner
+- **demo_stress_test.py**: Pre-configured demonstration scenarios
+- **Four Critical Test Scenarios**:
+  - **Solar Intermittency**: Rapid cloud cover variations (±80% output swings)
+  - **Wind Variability**: Unpredictable wind patterns with 15-minute ramps
+  - **Duck Curve Challenge**: Evening peak demand with midday solar surplus
+  - **Extreme Weather Events**: Grid stress during natural disasters
+
+#### **Test Results & Critical Findings**
+Recent stress testing revealed **catastrophic system failures** across all renewable integration scenarios:
+
+```
+📊 CRITICAL SYSTEM ANALYSIS RESULTS
+┌─────────────────────┬────────────────┬──────────────────┬─────────────────┐
+│ Test Scenario       │ System Cost    │ Renewable Usage  │ Grid Stability  │
+├─────────────────────┼────────────────┼──────────────────┼─────────────────┤
+│ Solar Intermittency │ $49,722        │ 0% (FAILURE)     │ 49.87 Hz        │
+│ Wind Ramping        │ $38,000        │ 0% (FAILURE)     │ 50.51 Hz        │
+│ Duck Curve          │ $64,247        │ 0% (FAILURE)     │ 49.81 Hz        │
+└─────────────────────┴────────────────┴──────────────────┴─────────────────┘
+
+🚨 CRITICAL INFRASTRUCTURE FAILURES IDENTIFIED:
+• Complete renewable dispatch failure across all scenarios
+• Duck curve scenario: 64% demand shortfall (immediate blackout)
+• Pricing dysfunction: $367.13/MWh during duck curve
+• Storage systems charging during peak demand (counterproductive)
+• Gas peakers offline during extreme pricing events
+```
+
+#### **Root Cause Analysis**
+1. **Renewable Dispatch Logic Failure**: System unable to utilize available renewable capacity
+2. **Market Clearing Dysfunction**: Price signals not correctly incentivizing generation
+3. **Storage Strategy Problems**: Batteries not providing grid stabilization services
+4. **Emergency Response Gaps**: No automatic response to supply shortfalls
+
+### 📊 Advanced Analytics Dashboard
+
+Interactive dashboard system providing comprehensive insights into grid performance, renewable integration, and system stability.
+
+#### **Dashboard Features** (`src/dashboard/`)
+1. **Executive Summary**: KPI cards with critical system alerts
+2. **Time-Series Analysis**: Real-time monitoring of frequency, voltage, costs, and renewable penetration
+3. **Comparative Performance**: Side-by-side analysis of different test scenarios
+4. **Violations & Events**: Critical event tracking and alert system
+5. **Storage Performance**: Battery and pumped hydro system analysis
+6. **Blackout Scenario Analysis**: Historical blackout modeling (Texas Uri, California Heat Wave, Winter Storm Elliott)
+
+#### **Quick Dashboard Access**
+```bash
+# Launch dashboard from project root
+python dashboard.py
+
+# Or with specific modes
+python dashboard.py --demo     # Demo mode
+python dashboard.py --report   # Static report generation
+python dashboard.py --test     # Run dashboard tests
+```
+
+#### **Data Integration**
+The dashboard automatically integrates data from:
+- **Stress Test Results**: Real-time renewable integration performance
+- **Blackout Simulations**: Historical disaster scenario modeling
+- **Market Experiments**: Economic efficiency analysis
+- **Agent Performance**: Individual agent decision tracking
+
+### 🔍 Blackout Studies & Historical Analysis
+
+Comprehensive modeling of major historical blackout events to understand grid vulnerabilities and improve resilience.
+
+#### **Modeled Historical Events** (`blackout_studies/`)
+1. **Texas Winter Storm Uri (2021)**: Extreme cold weather grid failure
+2. **California Heat Wave (2020)**: Demand surge and generation shortfall
+3. **Winter Storm Elliott (2022)**: Multi-region grid stress event
+
+#### **Analysis Capabilities**
+- **Timeline Recreation**: Step-by-step recreation of blackout progression
+- **Vulnerability Mapping**: Identification of critical failure points
+- **What-If Scenarios**: Testing alternative response strategies
+- **Recovery Planning**: Optimal grid restoration sequences
+
+### 🎯 Market Mechanism Studies
+
+Advanced analysis of electricity market performance under various stress conditions and renewable penetration levels.
+
+#### **Market Testing Framework** (`market_studies/`)
+- **Pricing Efficiency Analysis**: How well do prices reflect true system costs?
+- **Market Power Detection**: Identification of potential manipulation
+- **Transaction Cost Analysis**: Economic efficiency measurement
+- **Price Cap Impact Studies**: Regulatory intervention effectiveness
+
+#### **Key Market Insights**
+- **Price Volatility**: Renewable integration increases price swings by 200-300%
+- **Market Clearing Issues**: Current algorithms struggle with high renewable penetration
+- **Revenue Adequacy**: Traditional generators face revenue challenges
+- **Storage Arbitrage**: Battery systems show poor financial performance
+
+### 📈 Experimental Framework
+
+Comprehensive testing infrastructure for systematic analysis of smart grid performance under various conditions.
+
+#### **Core Capabilities** (`experiments/`)
+- **Controlled Scenario Testing**: Repeatable experiment design
+- **Parameter Sweeping**: Systematic testing across different configurations
+- **Performance Benchmarking**: Quantitative comparison of different approaches
+- **Statistical Analysis**: Rigorous analysis of results with confidence intervals
+
+#### **Available Experiment Types**
+- **Agent Training Experiments**: Comparing different RL algorithms
+- **Grid Configuration Studies**: Testing different grid topologies
+- **Policy Impact Analysis**: Evaluating regulatory changes
+- **Technology Integration**: Testing new equipment types
+
+### 🚨 Critical System Recommendations
+
+Based on comprehensive testing and analysis, the following critical issues require immediate attention:
+
+#### **Immediate Priority (System-Breaking Issues)**
+1. **Fix Renewable Dispatch Logic**: Currently achieving 0% renewable utilization
+2. **Emergency Capacity Activation**: Gas peakers not responding to price signals
+3. **Market Clearing Algorithm**: Fundamental issues with supply-demand matching
+4. **Storage Control Strategy**: Batteries charging during peak demand
+
+#### **High Priority (Performance Issues)**
+1. **Frequency Regulation**: Improve automatic generation control
+2. **Voltage Stability**: Enhanced reactive power management
+3. **Price Signal Transmission**: Better communication between market and operations
+4. **Demand Response Activation**: Faster consumer response to grid stress
+
+#### **Medium Priority (Optimization)**
+1. **Renewable Forecasting**: Better prediction of solar/wind output
+2. **Storage Degradation Modeling**: Lifecycle cost optimization
+3. **Agent Learning Efficiency**: Faster RL convergence
+4. **Communication Network Optimization**: Reduced message latency
+
+### 🔮 Future Research Directions
+
+- **Real-Time Hardware Integration**: Testing with actual grid equipment
+- **Machine Learning Enhancement**: Advanced AI for grid prediction and control
+- **Cybersecurity Modeling**: Threat analysis and defense strategies
+- **Distributed Energy Resources**: Microgrids and peer-to-peer trading
+- **Climate Change Adaptation**: Grid resilience under changing weather patterns
 
 ## 🛠️ Installation
 
