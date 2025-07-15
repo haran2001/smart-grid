@@ -511,7 +511,7 @@ def _generate_summary_report(all_results: Dict[str, Any]):
 
 if __name__ == "__main__":
     # Run a single test
-    asyncio.run(run_individual_stress_test("solar_intermittency_stress"))
+    # asyncio.run(run_individual_stress_test("solar_intermittency_stress"))
     
     # Or run all tests
-    # asyncio.run(run_all_stress_tests()) 
+    asyncio.run(run_all_stress_tests()) 

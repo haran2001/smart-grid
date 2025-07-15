@@ -1,0 +1,2906 @@
+arXiv:2110.14300v5 [cs.LG] 21 Jan 2022
+Multi-Agent Reinforcement Learning for Active
+Voltage Control on Power Distribution Networks
+Jianhong Wang∗
+Imperial College London
+jianhong.wang16@imperial.ac.uk
+Yunjie Gu†
+University of Bath
+yg934@bath.ac.uk
+Wenbin Song
+Shanghaitech University
+songwb@shanghaitech.edu.cn
+Wangkun Xu∗
+Imperial College London
+wangkun.xu18@imperial.ac.uk
+Tim C. Green‡
+Imperial College London
+t.green@imperial.ac.uk
+Abstract
+This paper presents a problem in power networks that creates an exciting and yet
+challenging real-world scenario for application of multi-agent reinforcement learn-
+ing (MARL). The emerging trend of decarbonisation is placing excessive stress on
+power distribution networks. Active voltage control is seen as a promising solution
+to relieve power congestion and improve voltage quality without extra hardware
+investment, taking advantage of the controllable apparatuses in the network, such
+as roof-top photovoltaics (PVs) and static var compensators (SVCs). These control-
+lable apparatuses appear in a vast number and are distributed in a wide geographic
+area, making MARL a natural candidate. This paper formulates the active voltage
+control problem in the framework of Dec-POMDP and establishes an open-source
+environment. It aims to bridge the gap between the power community and the
+MARL community and be a drive force towards real-world applications of MARL
+algorithms. Finally, we analyse the special characteristics of the active voltage
+control problems that cause challenges (e.g. interpretability) for state-of-the-art
+MARL approaches, and summarise the potential directions.
+1 Introduction
+Multi-agent reinforcement learning (MARL) has demonstrated impressive performances on games
+(e.g., Chess [1], StarCraft [2, 3], and etc.) and robotics [4]. There are now increasing interests and
+thrusts to apply MARL in real-world problems. Power network is a natural test field for MARL
+algorithms. There are many problems in power networks involving the collaborative or competitive
+actions of a vast number of agents, such as market bidding [5], voltage control, frequency control,
+and emergency handling [6]. One of the obstacles for applying MARL in power networks is the lack
+of transparency and guarantee, which is unacceptable considering the importance of reliable power
+supply for the whole society. Therefore, it is sensible to start with problems that are less sensitive to
+reliability but hard to be solved by conventional methods.
+Active voltage control in power distribution networks is such a candidate problem. The voltage
+control problem has been studied for years but only comes under spot light recently due to the
+increasing penetration of distributed resources, e.g. roof-top photovoltaics (PVs) [7]. The excessive
+active power injection may cause voltage fluctuations beyond the threshold of grid standards [8]. The
+voltage fluctuations can be relieved by exploiting the control flexibility of PV inverters themselves
+∗Equal contributions. †Correspondence to Yunjie Gu who is also an honorary lecturer at Imperial College
+London. ‡Tim C. Green is also the co-director of the Energy Futures Laboratory (EFL).
+35th Conference on Neural Information Processing Systems (NeurIPS 2021).
+along with other controllable apparatuses, such as static var compensators (SVCs) and on load tap
+changers (OLTCs). An elaborate scheme is needed to coordinate these multiple apparatuses at scale
+to regulate voltage throughout the network with limited local information, which is called active
+voltage control [9–12]. The active voltage control problem has many interesting properties. (1) It
+is a combination of local and global problem, i.e., the voltage of each node is influenced by the
+powers (real and reactive) of all other nodes but the impact recedes with increasing distance between
+nodes. (2) It is a constrained optimisation problem where the constraint is the voltage threshold
+and the objective is the total power loss, but there is no explicit relationship between the constraint
+and the control action. (3) A distribution network has a radial topology involving a rich structure
+that can be taken as prior knowledge for control, but the node-branch parameters of the topology
+may be significantly uncertain. (4) Voltage control has a relatively large tolerance and less severe
+consequences if the control fails to meet standard requirements.
+There have been several attempts to apply MARL in active voltage control [6, 13–16]. Each work
+on a particular case showed promising performances of state-of-the-art MARL approaches with
+modifications adapting to the active voltage control problem. However, it is not clear if these methods
+scale well to a larger network, and the robustness against different scenarios, such as penetration
+levels and load profiles, are yet to be investigated. There is no commonly accepted benchmark to
+provide the basis for fair comparison of different solutions.
+To facilitate further research on this topic, and to bridge the gap between the power community and
+MARL community, we present a comprehensive test-bench and open-source environment for MARL
+based active voltage control. We formally define the active voltage control problem as a Dec-POMDP
+[17] that is widely acknowledged in the MARL community. We present an environment in Python
+and construct 3 scenarios with real public data that span from small scale (i.e. 6 agents) to large scale
+(i.e. 38 agents).
+The contributions of this paper are summarised as follows: (1) We formally define the active voltage
+control problem as a Dec-POMDP and develop an open-source environment.2 (2) We conduct large
+scale experimentation with 7 state-of-the-art MARL algorithms on different scenarios of the active
+voltage control problem. (3) We convert voltage constraints to barrier functions and observe the
+importance of designing an appropriate voltage barrier function from the experimental results. (4) By
+analysing the experimental results, we imply the possible challenges (e.g. interpretability) for MARL
+to solve the active voltage control problem and suggest potential directions for future works.
+2 Related Work
+Traditional Methods for Active Voltage Control. Voltage rising and fluctuation problem in
+distribution networks has been studied for 20 years [18]. The traditional voltage regulation devices
+such as OLTC and capacitor banks [10] are often installed at substations and therefore may not be
+effective in regulating voltages at the far end of the line [19]. The emergence of distributed generation,
+such as root-top PVs, introduces new approaches for voltage regulation by the active reactive power
+control of grid-connected inverters [11]. The state-of-the-art active voltage control strategies can
+be roughly classified into two categories: (1) reactive power dispatch based on optimal power flow
+(OPF) [20, 21]; and (2) droop control based on local voltage and power measurements [22, 23].
+Specifically, centralised OPF [24–26] minimises the power loss while fulfilling voltage constraints
+(e.g. power flow equation defined in Eq.1); distributed OPF [27, 28] used distributed optimization
+techniques, such as alternating direction method of multipliers (ADMM), to replace the centralised
+solver. The primary limitation of OPF is the need of exact system model [29]. Besides, solving
+constrained optimisation problem is time-consuming, so it is difficult to react to the rapid change of
+load profile [30]. On the other hand, droop control only depends on its local measurements, but its
+performance relies on the manually-designed parameters and is often sub-optimal due to the lack of
+global information [30]. It is possible to enhance droop control by distributed algorithms, but extra
+communications are needed [31, 19]. In this paper we investigate the possibility of applying MARL
+techniques on the active voltage control problem. Compared with the previous works on traditional
+methods, (1) MARL is model-free, so no exact system model is needed; and (2) the response of
+MARL is fast so as to handle rapid changes of environments (e.g. the intermittency of renewable
+energy).
+2https://github.com/Future-Power-Networks/MAPDN.
+2
+Multi-Agent Reinforcement Learning for Active Voltage Control. In this section, we discuss
+the works that applied MARL to active voltage control problem in the power system community.
+[14, 16] applied MADDPG with the reactive power of inverters or static var compensators (SVCs) as
+control actions. [32] applied MADDPG with a manually designed voltage inner loop, so that agents
+set reference voltage instead of reactive power as their control actions. [13] applied MATD3 also
+with reactive power as control actions. [15] applied MASAC, where both reactive power and the
+curtailment of active power are used as control actions. In the above works, distribution networks are
+divided into regions, with each region controlled by a single agent [33]. It is not clear if these MARL
+approaches scales well for increasing number of agents. In particular, it is not clear if each single
+inverter in a distribution network can behave as an independent agent. In this work, we model the
+active voltage control problem as a Dec-POMDP [17], where each inverter is controlled by an agent.
+We propose Bowl-shape as a barrier function to represent voltage constraint as part of the reward. We
+build up an open-source environment for this specific problem that can be easily deployed with the
+existing MARL algorithms.
+Concurrent Works. L2RPN [34] is an environment mainly for the centralised control over power
+transmission networks with node-splitting and lines switch-off for topology management. Gym-ANM
+[35] is an environment for centralised power distribution network management. Compared with
+these 2 works, our environment mainly focuses on solving the active voltage control problem in
+power distribution networks, with the decentralised/distributed manner. Moreover, we provide more
+complicated scenarios with the real-world data. Finally, our environment can be easily and flexibly
+extended with more network topologies and data, thanks to the supports of PandaPower [36] and
+SimBench [37].
+3 Background
+3.1 Power Distribution Network
+Figure 1: Illustration on distribution network (block a-b-c) under PV penetration. The solid and
+dotted lines represent the power and information flows respectively. Block d is the detailed version of
+distribution network and block e is the circuit model of block d.
+An electric power distribution network is illustrated in Figure 1 stage a to c. The electricity is
+generated from power plant and transmitted through transmission lines. Muti-stage transformers
+are applied to reduce the voltage levels while the electricity is being delivered to the distribution
+network. The electricity is then consumed by residential and industrial clients. A typical PV unit
+consists of PV panels and voltage-source inverters which can be installed either on roof-top or in
+the solar farm. Conventionally, there exist management entities such as distributed system operator
+(DSO) monitoring and operating the PV resources through the local communication channels. With
+emergent PV penetration, distribution network gradually grows to be an active participant in power
+networks that can deliver power and service to its users and the main grid (see the bidirectional power
+flows in Figure 1 stage-d).
+System Model and Voltage Deviation. In this paper, we consider medium (10-24kV) and low
+(0.23-1kV) voltage distribution networks where PVs are highly penetrated. We model the distribution
+network in Figure 1 as a tree graph G= (V,E), where V= {0,1,...,N}and E= {1,2,...,N}
+represent the set of nodes (buses) and edges (branches) respectively [24]. Bus 0 is considered as
+the connection to the main grid, balancing the active and reactive power in the distribution network.
+For each bus i ∈V, let vi and θi be the magnitude and phase angle of the complex voltage and
+sj= pi + jqi be the complex power injection. Then the active and reactive power injection can be
+3
+defined as follows:
+pP V
+i−pL
+i = v2
+i
+j∈Vi
+qP V
+i−qL
+i =−v2
+i
+j∈Vi
+gij−vi
+j∈Vi
+bij + vi
+j∈Vi
+vj(gijcos θij + bijsin θij), ∀i∈V \{0}
+(1)
+vj(gijsin θij + bijcos θij), ∀i∈V \{0}
+where Vi := {j |(i,j) ∈E}is the index set of buses connected to bus i. gij and bij are the
+conductance and susceptance on branch (i ,j ). θij= θi−θj is the phase difference between bus i
+and j. pP V
+i and qP V
+i are the active power and reactive power of the PV on the bus i(that are zeros if
+there is no PV on the bus i). pL
+i and qL
+i are the active power and reactive power of the loads on the
+bus i(that are zeros if there is no loads on the bus i). Eq.1 can represent the power system dynamics
+which is essential for solving the power flow problem and active voltage control problem [38] (details
+in Appendix A.1-A.2). For safe and optimal operation, 5% voltage deviation is usually allowed, i.e.,
+v0 = 1.0 per unit (p.u.) and 0.95 p.u. ≤vi ≤1.05 p.u.,∀i ∈V \{0}. When the load is heavy
+during the nighttime, the end-user voltage could be smaller than 0.95 p.u.[39]. In contrast, to export
+its power, large penetration of pP V
+i leads to reverse current flow that would increase vi out of the
+nominal range (Figure 1-d) [18, 40].
+Optimal Power Flow. In this paper, OPF is regarded as an optimization problem minimizing
+the total power loss subject to the power balance constraints defined in Eq.1, PV reactive power
+limits, and bus voltage limits [41]. As the centralized OPF has full access to the system topology,
+measurements, and PV resources, it provides the optimal active voltage control performance and can
+be used as a benchmark method (details in Appendix A.3). However, the performance of the OPF
+depends on the accuracy of the grid model and the optimisation is time-consuming which makes it
+difficult to be deployed online.
+Droop Control. To regulate local voltage deviation, the standard droop control defines a piece-wise
+linear relationship between PV reactive power generation and voltage deviation at a bus equipped
+with inverter-based PVs [30, 42] (details in Appendix A.4). It is a fully decentralised control and
+ignore both the total voltage divisions and the power loss.
+3.2 Dec-POMDP
+Multi-agent reinforcement learning (MARL) is an extension from the reinforcement learning problem,
+with multiple agents in the same environment. The problem of MARL for cooperation among agents
+is conventionally formulated as a Dec-POMDP [17]. It is usually formulated as a tuple such that
+⟨I,S,A,O,T,r,Ω,ρ,γ⟩. Iis an agent set; Sis a state set; A= ×i∈I Ai is the joint action set,
+where Ai is each agent’s action set; O= ×i∈I Oi is the joint observation set, where Oi is each
+agent’s observation set; T : S×A×S→[0,1] is a transition probability function that describes the
+dynamics of an environment; r : S×A→R is a global reward function that describes the award to
+the whole agents given their decisions; Ω : S×A×O→[0,1] describes the perturbation of the
+observers (or sensors) for agents’ joint observations over the states after decisions; ρ: S→[0,1] is a
+probability function of initial states; and γ ∈(0,1) is a discount factor. The objective of Dec-POMDP
+is finding an optimal joint policy π= ×i∈I πi that solves maxπEπ
+∞
+t=0 γtrt.
+4 Distributed Active Voltage Control Problem
+4.1 Problem Formulation
+For the ease of operations, a large-scale power network is divided into multiple regions and there are
+several PVs installed into each region that is managed by the responsible distribution network owner.
+Each PV is with an inverter that generates reactive power to control the voltage around a stationary
+value denoted as vref. In our problem, we assume that the PV ownership (e.g. individual homeowners
+or enterprise) is independent and separated from the distribution network ownership (DNO) [33].
+Specifically, a PV owner is responsible for operating a PV infrastructure. In other words, each PV
+is able to be controlled under a distributed manner so that it is natural to be considered as an agent.
+To enforce the safety of distribution power networks, all agents (i.e. PVs) within a region share the
+4
+observation of this region.3 Since each agent can only observe partial information of the whole gird
+and maintaining the safety of the power network is a common goal among agents, it is reasonable to
+model the problem as a Dec-POMDP [17] that can be mathematically described as a 10-tuple such
+that ⟨I,S,A,R,O,T,r,Ω,ρ,γ⟩, where ρis the probability distribution for drawing the initial state
+and γis the discount factor.
+Agent Set. There is a set of agents controlling a set of PV inverters denoted as I. Each agent is
+located at some node in G(i.e. a graph representing the power network defined as before). We define
+a function g : I→V to indicate the node where an agent is located.
+Region Set. The whole power network is separated into M regions, whose union is denoted as
+R= {Rk ⊂V |k < M,k ∈N}, where Rk ∈RRk ⊆V and Rk1 ∩Rk2
+= ∅if k1 ̸= k2. We
+define a function f : V →Rthat maps a node to the region where it is involved.
+State and Observation Set. The state set is defined as S= L×P×Q×V, where L= {(pL
+,qL ) :
+pL
+,qL ∈(0,∞)|V | }is a set of (active and reactive) powers of loads; P= {pP V : pP V ∈(0,∞)|I| }
+is a set of active powers generated by PVs; Q= {qP V : qP V ∈(0,∞)|I| }is a set of reactive powers
+generated by PV inverters at the preceding step; V= {(v,θ) : v ∈(0,∞)|V | ,θ∈[−π,π]|V | }is a set
+of voltage wherein v is a vector of voltage magnitudes and θis a vector of voltage phases measured
+in radius. vi, pL
+i, qL
+i , pP V
+i and qP V
+i are denoted as the components of the vectors v, pL
+, qL
+, pP V and
+qP V respectively. We define a function h : P(V) →P(S) that maps a subset of V to its correlated
+measures, where P(·) denotes the power set. The observation set is defined as O= ×i∈I Oi, where
+Oi = (h◦f ◦g)(i ) indicates the measures within the region where agent i is located.
+Action Set. Each agent i ∈Iis equipped with a continuous action set Ai = {ai :−c ≤ai ≤
+c,c>0}. The continuous action represents the ratio of maximum reactive power it generates, i.e.,
+the reactive power generated from the kth PV inverter is qP V
+k = ak (smax
+k )2
+−(pP V
+k )2, where smax
+k
+is the maximum apparent power of the k th node that is dependent on the physical capacity of the PV
+inverter.4, 5 If ak >0, it means penetrating reactive powers to the distribution network. If ak <0, it
+means absorbing reactive powers from the distribution network. The value of cis usually selected as
+per the loading capacity of a distribution network, which is for the safety of operations. The joint
+action set is denoted as A= ×i∈I Ai.
+State Transition Probability Function. Since the state includes the last action and the change of
+loads is random (that theoretically can be modelled as any probabilistic distribution), we can naturally
+define the state transition probability function as T : S×A×S→[0,1] that follows Markov
+decision process. Specifically, T(st+1|st,at) = Pr(st+1|δ(st,at)), where at ∈Aand st,st+1 ∈S.
+δ(st,a) →st+τ denotes the solution of the power flow, whereas Pr(st+1|st+τ) describes the change
+of loads (i.e. highly correlated to the user behaviours). τ ≪∆tis an extremely short interval much
+less than the time interval between two controls (i.e. a time step) and ∆t= 1 in this paper.
+Observation Probability Function. We now define the observation probability function. In the
+context of electric power network, it describes the measurement errors that may occur in sensors.
+Mathematically, we can define it as Ω : S×A×O→[0,1]. Specifically, Ω(ot+1|st+1,at) = st+1 +
+N(0,Σ), where N(0,Σ) is an isotropic multi-variable Gaussian distribution and Σ is dependent on
+the physical properties of sensors (e.g. smart meters).
+Reward Function. The reward function is defined as follows:
+1
+r =−
+|V|i∈V
+lv(vi)−α·lq(qP V ), (2)
+where lv(·) is a voltage barrier function and lq(qP V ) = 1
+|I|||qP V ||1 is the reactive power generation
+loss (i.e. a type of power loss approximation easy for computation). The objective is to control the
+voltage within a safety range around vref, while the reactive power generation is as less as possible, i.e.,
+3Sharing observation in this problem is reasonable, since only the sensor measurements (e.g. voltage, active
+power, etc.) are shared, which are not directly related to the commercial profits [33]. The observation of each
+PV is collected by the distribution network owner and then the full information within the region is sent to each
+agent.
+4Note that the reactive power range actually dynamically changes at each time step.
+5Yielding (qP V
+k )t at each time step t is equivalent to yielding ∆t(qP V
+k ) (i.e. the change of reactive power
+generation at each time step), since (qP V
+k )t = (qP V
+k )t−1 + ∆t(qP V
+k ). For easily satisfying the safety condition,
+we directly yield qP V
+k at each time step in this work.
+5
+lq(qP V ) <ϵand ϵ>0. Similar to the mathematical tricks used in β-VAE [43], by KKT conditions
+we can transform a constrained reward to a unconstrained reward with a Lagrangian multiplier
+α∈(0,1) shown in Eq.2. Since lv(·) is not easy to define in practice (i.e., it affects lq(qP V )), we
+aim to study for a good choice in this paper.
+Objective Function. The objective function of this problem is maxπEπ[∞
+t=0 γtrt], where
+¯
+π= ×i∈I πi; πi :
+Oi ×Ai →[0,1] and¯
+Oi = (Oτ
+i)h
+τ=1 is a history of observations with the length
+as h. Literally, we need to find an optimal joint policy π to maximize the discounted cumulative
+rewards.
+4.2 Voltage Barrier Function
+Penalty
+0.10
+0.08
+0.06
+0.04
+0.02
+0.00
+Penalty
+0.10
+0.08
+0.06
+0.04
+0.02
+0.00
+Penalty
+0.10
+0.08
+0.06
+0.04
+0.02
+0.00
+0.90 0.95 1.00 1.05 1.10
+Voltage (p.u.)
+0.90 0.95 1.00 1.05 1.10
+Voltage (p.u.)
+(a) L1-shape.
+0.90 0.95 1.00 1.05 1.10
+Voltage (p.u.)
+(b) L2-shape.
+(c) Bowl-shape.
+Figure 2: This figure shows 3 voltage barrier functions, where L1-shape and L2-shape are 2 baselines
+while Bowl-shape is proposed in this paper.
+We define vref = 1 p.u.in this paper, and the voltage needs to be controlled within the safety range
+from 0.95 p.u.to 1.05 p.u., which sets the constraint of control. The voltage constraint is difficult
+to be handled in MARL, so we use a barrier function to represent the constraint. L1-shape (see
+Figure 2a) was most frequently used in the previous work [13–15], however, this may lead to wasteful
+reactive power generations since |∆lv |
+α|∆lq |≫1 within the safety range of voltage. Although L2-shape
+(see Figure 2b) may alleviate this problem, it may be slow to guide the policy outside the safety
+range. To address these problems, we propose a barrier function called Bowl-shape that combines
+the advantages of L1-shape and L2-shape. It gives a steep gradient outside the safety range, while it
+provides a slighter gradient as voltage tends to the vref that enables |∆lv |
+α|∆lq |→0 as v→vref.
+5 Experiments
+5.1 Experimental Settings
+Power Network Topology. Two MV networks, IEEE 33-bus [44] and 141-bus [45] are modified
+as systems under test.6 To show the flexibility on network with multi-voltage levels, we construct a
+110kV-20kV-0.4kV (high-medium-low voltage) 322-bus network using benchmark topology from
+SimBench [37]. For each network, a main branch is firstly determined and the control regions
+are partitioned by the shortest path between the terminal bus and the coupling point on the main
+branch. Each region consists of 1-4 PVs dependent on various regional sizes. The specific network
+descriptions and partitions are shown in Appendix D.1. To give a picture of the tasks, we demonstrate
+the 33-bus network in Figure 3.
+Data Descriptions. The load profile of each network is modified based on the real-time Portuguese
+electricity consumption accounting for 232 consumers of 3 years.7 To highlight the differences
+between residential and industrial users, we randomly perturb ±5% on the default power factors
+defined in the case files and accordingly generate real-time reactive power consumption. The solar
+data is collected from Elia group,8 i.e. a Belgium’s power network operator. The load and PV data are
+then interpolated with 3-min resolution that is consistent with the real-time control period in the grid.
+To distinguish among different solar radiation levels in various regions, the 3-year PV generations
+6The original topologies and parameters can be found in MATPOWER [46] description file such as https:
+//github.com/MATPOWER/matpower/tree/master/data.
+7https://archive.ics.uci.edu/ml/datasets/ElectricityLoadDiagrams20112014.
+8https://www.elia.be/en/grid-data/power-generation/solar-pv-power-generation-data.
+6
+L L L 23 24 25
+L L L L L L L L
+26 27 28 29 30 31 32 33
+G
+0
+ZONE 3 L
+1 2 3 4 5 6
+L L L
+ZONE 4
+L
+ZONE 1
+ZONE 2
+19 20 21 22
+L L L L 7 8 9
+10 11 12 13 14 15 16 17 18
+L L L L L L L L L L
+L L
+Figure 3: Illustration on 33-bus network. Each bus is indexed by a circle with a number. 4 control
+regions are partitioned by the smallest path from the terminal to the main branch (bus 1-6). We control
+the voltages on bus 2-33 whereas bus 0-1 represent the substation or main grid with the constant
+voltage and infinite active and reactive power capacity. G represents an external generator; small Ls
+represent loads; and the sun emoji represents the location where a PV is installed.
+from 10 cites/regions are collected and PVs in the same control region possess the same generation
+profiles. We define the PV penetration rate (PR) as the ratio between rated PV generation and rated
+load consumption. In this paper, we set PR∈{2.5,4,2.5}as the default PRfor different topologies.
+We oversize each PV inverter by 20% of its maximum active power generation to satisfy the IEEE
+grid code [42]. Besides, each PV inverter is considered to be able to generate reactive power in the
+STATCOM mode during night [47]. The median and 25%-75% quantile shadings of PV generations,
+and the mean and minima-maxima shading of the loads are illustrated in Figure 4. The details can be
+found in Appendix D.2.
+50
+2.5
+Active Power (MW)
+40
+2.0
+30
+1.5
+20
+1.0
+10
+0.5
+0
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+0.0
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+(b) 141-bus network.
+(c) 322-bus network.
+Figure 4: Active PV generations and load consumption.
+PV Generation
+Load Consumption
+6
+5
+4
+3
+2
+1
+0
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+(a) 33-bus network.
+PV Generation
+Load Consumption
+Active Power (MW)
+PV Generation
+Load Consumption
+Active Power (MW)
+MARL Simulation Settings. We now describe the simulation settings standing by the view of
+MARL. In 33-bus network, there are 4 regions with 6 agents. In 141-bus network, there are 9 regions
+with 22 agents. In 322-bus network, there are 22 regions with 38 agents. The discount factor γis set
+to 0.99. αin Eq.2 is set to 0.1. To guarantee the safety of distribution networks, we manually set
+the range of actions for each scenario, with [−0.8,0.8] for 33-bus network, [−0.6,0.6] for 141-bus
+network, and [−0.8,0.8] for 322-bus network. During training, we randomly sample the initial state
+for an episode and each episode lasts for 240 time steps (i.e. a half day). Every experiment is run with
+5 random seeds and the test results during training are given by the median and the 25%-75% quartile
+shading. Each test is conducted every 20 episodes with 10 randomly selected episodes for evaluation.
+Evaluation Metrics. In experiments, we use two metrics to evaluate the performance of algorithms.
+• Controllable rate (CR): It calculates the ratio of time steps where all buses’ voltages being under
+control during each episode.
+• Power loss (PL): It calculates the average of the total power loss over all buses per time step during
+each episode.
+We aim to find algorithms and reward functions with high CR and low PL.
+MARL Algorithm Settings. We evaluate the performances of state-of-the-art MARL algorithms,
+i.e. IDDPG [48], MADDPG [49], COMA [50], IPPO [2], MAPPO [3], SQDDPG [48] and MATD3
+[51] on this real-world problem with continuous actions. Since the original COMA can only work
+7
+for discrete actions, we conduct some modifications so that it can work for continuous actions (see
+Appendix B). The details of settings are shown in Appendix C.
+5.2 Main Results
+Ratio
+1.0
+0.5
+Ratio
+1.0
+0.5
+1.0
+Ratio
+0.5
+0.2
+0.1
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+Loss
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+Loss
+0.0
+0 100 200 300 400
+Episode
+0.0
+0 100 200 300 400
+Episode
+0.0
+0 100 200 300 400
+Episode
+0.0
+0 100 200 300 400
+Episode
+0.2
+0.1
+0.0
+0 100 200 300 400
+Episode
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+Loss
+0.2
+0.1
+0.0
+0 100 200 300 400
+Episode
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+(a) CR-L1-33.
+(b) CR-L2-33.
+(c) CR-BL-33.
+(d) PL-L1-33.
+(e) PL-L2-33.
+(f) PL-BL-33.
+Ratio
+1.0
+0.5
+Ratio
+1.0
+0.5
+1.0
+Ratio
+0.5
+3.0
+1.5
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+Loss
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+Loss
+0.0
+0 100 200 300 400
+Episode
+0.0
+0 100 200 300 400
+Episode
+0.0
+0 100 200 300 400
+Episode
+0.0
+0 100 200 300 400
+Episode
+3.0
+1.5
+0.0
+0 100 200 300 400
+Episode
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+Loss
+3.0
+1.5
+0.0
+0 100 200 300 400
+Episode
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+(g) CR-L1-141.
+(h) CR-L2-141.
+(i) CR-BL-141.
+(j) PL-L1-141.
+(k) PL-L2-141.
+(l) PL-BL-141.
+1.0
+Ratio
+0.5
+1.0
+Ratio
+0.5
+1.0
+Ratio
+0.5
+0.2
+Loss
+0.1
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+0.2
+0.2
+Loss
+0.1
+Loss
+0.1
+0.0
+0 100 200 300 400
+Episode
+0.0
+0 100 200 300 400
+Episode
+0.0
+0 100 200 300 400
+Episode
+0.0
+0 100 200 300 400
+Episode
+0.0
+0 100 200 300 400
+Episode
+0.0
+0 100 200 300 400
+Episode
+(m) CR-L1-322.
+(n) CR-L2-322.
+(o) CR-BL-322.
+(p) PL-L1-322.
+(q) PL-L2-322.
+(r) PL-BL-322.
+Figure 5: Median CR and PL of algorithms with different voltage barrier functions. The sub-caption
+indicates metric-Barrier-scenario and BL is the contraction of Bowl.
+Algorithm Performances. We first show the main results of all algorithms on all scenarios in
+Figure 5. MADDPG and MATD3 generally perform well on all scenarios with different voltage
+barier functions. COMA performs well over CR on 33-bus networks and the performances fall on the
+large scale scenarios, but its PL is high. Similarly, SQDDPG performs generally well over CR on
+33-bus and 141-bus networks, but it performs the worst on 322-bus networks and its PL on 141-bus
+networks is high. This reveals the limitations of COMA and SQDDPG on the scaling to many agents.
+Although MAPPO and IPPO performed well on games [2, 3], their performances on the real-world
+power network problems are poor. The most probable reason could be that the variations of dynamics
+and uncertainties in distribution networks are far faster and more complicated than games and their
+conservative policy updates cannot fast respond. IDDPG performs at the middle place in all scenarios,
+which may be due to non-stationary dynamics caused by multiple agents [49].
+1.0
+1.0
+1.0
+0.2
+3.0
+0.2
+Ratio
+0.5
+Ratio
+0.5
+Ratio
+0.5
+Loss
+0.1
+Loss
+1.5
+Loss
+0.1
+Bowl
+L1
+L2
+0.0
+0 100 200 300 400
+Episode
+0.0
+0 100 200 300 400
+Episode
+0.0
+0 100 200 300 400
+Episode
+0.0
+0 100 200 300 400
+Episode
+0.0
+0 100 200 300 400
+Episode
+0.0
+0 100 200 300 400
+Episode
+(a) CR-33.
+(b) CR-141.
+(c) CR-322.
+(d) PL-33.
+(e) PL-141.
+(f) PL-322.
+Figure 6: Median performance of overall algorithms with different voltage barrier functions. The
+sub-caption indicates metric-scenario.
+Voltage Barrier Function Comparisons. To study the effects of different voltage barrier functions,
+we show the median performance of overall 7 MARL algorithms in Figure 6. It can be observed that
+Bowl-shape can preserve the high CR, while maintain the low PL on 33-bus and 141-bus networks.
+Although L1-shape can achieve the best CR on 33-bus and 141-bus networks, its PL on the 141-bus
+network is the highest. L2-shape performs the worst on 33-bus and 141-bus networks, but performs
+the best on the 322-bus network with the highest CR and the lowest PL. The reason could be that its
+slighter gradients is more suitable for the adaption among many agents. From the results, we can
+8
+Bowl
+L1
+L2
+Bowl
+L1
+L2
+Bowl
+L1
+L2
+Bowl
+L1
+L2
+Bowl
+L1
+L2
+conclude that L1-shape, Bowl-shape and L2-shape are the best choices for the 33-bus network, the
+141-bus network and the 322-bus network respectively.
+1
+0
+1
+Ratio
+2
+1.00
+0.95
+0.90
+0.85
+0.80
+0.75
+0.70
+0.65
+0.60
+1
+0
+1
+Ratio
+2
+1.04
+0.96
+0.88
+0.80
+0.72
+0.64
+0.56
+0.48
+0.40
+0.32
+1
+0
+1
+Ratio
+2
+0.80
+0.72
+0.64
+0.56
+0.48
+0.40
+0.32
+0.24
+0 1 2 3 4 5 6
+Algorithm
+0
+1
+Reward
+0 1 2 3 4 5 6
+Algorithm
+0
+1
+Reward
+0 1 2 3 4 5 6
+Algorithm
+0
+1
+Reward
+(a) CR-33.
+(b) CR-141.
+(c) CR-322.
+0.2
+0.0
+Loss
+0.2
+2
+0.165
+0.150
+0.135
+0.120
+0.105
+0.090
+0.075
+0.060
+2
+0
+2
+Loss
+2
+2.10
+1.95
+1.80
+1.65
+1.50
+1.35
+1.20
+1.05
+0.90
+0.2
+0.0
+Loss
+0.2
+2
+0.13
+0.12
+0.11
+0.10
+0.09
+0.08
+0.07
+0.06
+0.05
+0 1 2 3 4 5 6
+Algorithm
+1
+Reward
+0
+0 1 2 3 4 5 6
+Algorithm
+1
+Reward
+0
+0 1 2 3 4 5 6
+Algorithm
+1
+Reward
+0
+(d) PL-33.
+(e) PL-141.
+(f) PL-322.
+Figure 7: Median performances of overall algorithms trained with various rewards consist of distinct
+voltage barrier functions shown in 3D surfaces. The sub-caption indicates metric-scenario.
+Diverse Algorithm Performances under Distinct Rewards. To clearly show the relationship
+between algorithms and reward functions, we also plot 3D surfaces over CR and PL w.r.t. algorithm
+types and reward types (consisting of distinct voltage barrier functions) in Figure 7. It is obvious that
+the performances of algorithms are highly correlated with the reward types. In other words, the same
+algorithm could perform diversely even trained by different reward functions with the same objective
+but different shapes.
+5.3 Comparison between MARL and Traditional Control Methods
+To compare MARL algorithms with the traditional control methods, we conduct a series of tests
+on various network topologies (i.e. 33-bus, 141-bus, and 322-bus networks). MADDPG trained by
+Bowl-shape is selected as the candidate for MARL. The traditional control methods that we select
+are OPF [24] and droop control [22]. For conciseness, we only demonstrate the voltages and powers
+on a typical bus with a PV installed (i.e. one of the most difficult buses to control) during a day (i.e.
+480 consecutive time steps) in summer and winter respectively. The results for the 33-bus network is
+presented here and the results for other typologies are given in the Appendix E.2. From Figure 8, it
+can be seen that all methods control the voltage within the safety range in both summer and winter.
+Additionally, the power losses of MARL are lower than droop control but higher than OPF. This
+phenomenon is possibly due to the fact that droop control is a fully distributed algorithm which cannot
+explicitly reduce the power loss and OPF is a centralised algorithm with the known system model,
+while MARL lies between these 2 types of algorithms. This implies that MARL may outperform
+droop control for particular cases but it needs to be kept in mind that the droop gain used here may
+not be optimal. It is also worth noting that the control actions of MARL has a similar feature to droop
+control in the 33-bus case, and this feature is also observed in the 141-bus and 322-bus cases (see
+Figure 14-15 in the Appendix E.2 for details). However, this droop-like behaviour is missing in the
+winter case of 322-bus network, where the MARL control action is opposite to the desired direction,
+resulting in higher power losses and voltage deviation. This might be due to the over-generation
+as the MARL share the same policy for different seasons, so that it leads to the problem of relative
+overgeneralisation [52]. In summary, MARL seems able to learn the features of droop control but
+fails to outperform droop control significantly, and is even worse than droop control for certain cases.
+9
+Voltage (p.u.)
+None
+MARL
+Droop
+OPF
+Limit
+Power (MW/MVAR)
+Power (MW/MVAR)
+P
+Q-MARL
+Q-Droop
+Q-OPF
+Power Loss (MW)
+Power Loss (MW)
+MARL
+Droop
+OPF
+MARL
+Droop
+OPF
+As a result, there is still significant headroom of improvement for MARL, in performance, robustness,
+and interpretability.
+1.10
+1.05
+1.00
+0.95
+0.90
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+1.10
+1.05
+1.00
+0.95
+0.90
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+(a) Voltage.
+1.50
+1.00
+0.50
+0.00
+-0.50
+-1.00
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+0.40
+0.30
+0.20
+0.10
+0.00
+-0.10
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+(b) Power.
+0.40
+0.30
+0.20
+0.10
+0.00
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+0.05
+0.04
+0.03
+0.02
+0.01
+0.00
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+(c) Power loss.
+Figure 8: Compare MARL with traditional control methods on bus 18 during a day for 33-bus
+network. 1st row: results for a summer day. 2nd row: results for a winter day. None and limit in
+(a) represent the voltage with no control and the safety voltage range respectively. P and Q in (b)
+indicate the PV active power and the reactive power by various methods.
+P
+Q-MARL
+Q-Droop
+Q-OPF
+Voltage (p.u.)
+None
+MARL
+Droop
+OPF
+Limit
+5.4 Discussion
+We now discuss the phenomenons that we observe from the experimental results.
+• It is obvious that the voltage barrier function may impact the performance of an algorithm (even
+with tiny changes for the common goal). This may be of general importance as many real-world
+problems may contain constraints that are not indirect in the objective function. An overall
+methodology is needed for designing barrier functions in state-constraint MARL.
+• MARL may scale well for the number of agents and the complexity of networks, and only requires
+a very low control rate for active voltage control.
+• The results above show the evidence that MARL may behave diversely from the traditional control
+methods. Some of the learnt behaviours may induce better performance, but some others deteriorate
+the performance. This shows the promising benefits of MARL in industrial applications but also
+highlights the drawbacks in interpretability and robustness.
+• The combination of learning algorithms with domain knowledge is a potential roadmap towards
+interpretable MARL. For the active voltage control problem, the domain knowledge may present as
+network topology, inner control loops (say droop control), and load pattern. The exploitation of
+such domain knowledge reduces the dimensions of MARL exploration space and may offer a lower
+bound of performance as a guarantee. Encoding domain knowledge such as the network topology
+as a priori for model-based MARL is also a potential direction.
+6 Conclusion
+This paper investigates the potential of applying multi-agent reinforcement learning (MARL) to the
+active voltage control in power distribution networks. We firstly formulate this problem as a Dec-
+POMDP and then study the behaviours of MARL with various voltage barrier functions (reflecting
+voltage constraints as barrier penalties). Moreover, we compare the behaviours of MARL with the
+traditional control methods (i.e. droop control and OPF), and observe that MARL is possible to
+generate inexplicable behaviours, so an interpretable and trustable algorithm is highly desired for
+industrial applications. Finally, the environment used in this work is open-sourced and easy to follow
+so that the machine learning community is able to contribute to this challenging real-world problem.
+10
+Acknowledgement
+This work is supported by the Engineering and Physical Sciences Research Council of UK (EPSRC)
+under awards EP/S000909/1.
+References
+[1] David Silver, Julian Schrittwieser, Karen Simonyan, Ioannis Antonoglou, Aja Huang, Arthur
+Guez, Thomas Hubert, Lucas Baker, Matthew Lai, Adrian Bolton, et al. Mastering the game of
+go without human knowledge. nature, 550(7676):354–359, 2017.
+[2] Christian Schroeder de Witt, Tarun Gupta, Denys Makoviichuk, Viktor Makoviychuk, Philip HS
+Torr, Mingfei Sun, and Shimon Whiteson. Is independent learning all you need in the starcraft
+multi-agent challenge? arXiv preprint arXiv:2011.09533, 2020.
+[3] Chao Yu, Akash Velu, Eugene Vinitsky, Yu Wang, Alexandre Bayen, and Yi Wu. The surprising
+effectiveness of mappo in cooperative, multi-agent games. arXiv preprint arXiv:2103.01955,
+2021.
+[4] Christian Schroeder de Witt, Bei Peng, Pierre-Alexandre Kamienny, Philip Torr, Wendelin
+Böhmer, and Shimon Whiteson. Deep multi-agent reinforcement learning for decentralized
+continuous cooperative control. arXiv preprint arXiv:2003.06709, 2020.
+[5] Dawei Qiu, Jianhong Wang, Junkai Wang, and Goran Strbac. Multi-agent reinforcement learning
+for automated peer-to-peer energy trading in double-side auction market. In Zhi-Hua Zhou,
+editor, Proceedings of the Thirtieth International Joint Conference on Artificial Intelligence,
+IJCAI 2021, Virtual Event / Montreal, Canada, 19-27 August 2021, pages 2913–2920. ijcai.org,
+2021.
+[6] Di Cao, Weihao Hu, Junbo Zhao, Guozhou Zhang, Bin Zhang, Zhou Liu, Zhe Chen, and Frede
+Blaabjerg. Reinforcement learning and its applications in modern power and energy systems:
+A review. Journal of Modern Power Systems and Clean Energy, 8(6):1029–1042, 2020. doi:
+10.35833/MPCE.2020.000552.
+[7] Efstratios Batzelis, Zakir Hussain Rather, John Barton, Bonu Ramesh Naidu, Billy Wu, Firdous
+Ul Nazir, ONYEMA SUNDAY NDUKA, Wei He, Jerome Nsengiyaremye, and Bandopant
+Pawar. Solar integration in the uk and india: technical barriers and future directions. Report of
+the UK-India Joint Virtual Clean Energy Centre (JVCEC), 2021.
+[8] Reinaldo Tonkoski, Dave Turcotte, and Tarek H. M. EL-Fouly. Impact of high pv penetration
+on voltage profiles in residential neighborhoods. IEEE Transactions on Sustainable Energy, 3
+(3):518–527, 2012. doi: 10.1109/TSTE.2012.2191425.
+[9] Pedro MS Carvalho, Pedro F Correia, and Luís AFM Ferreira. Distributed reactive power
+generation control for voltage rise mitigation in distribution networks. IEEE transactions on
+Power Systems, 23(2):766–772, 2008.
+[10] Tomonobu Senjyu, Yoshitaka Miyazato, Atsushi Yona, Naomitsu Urasaki, and Toshihisa Fun-
+abashi. Optimal distribution voltage control and coordination with distributed generation. IEEE
+Transactions on Power Delivery, 23(2):1236–1242, 2008. doi: 10.1109/TPWRD.2007.908816.
+[11] Konstantin Turitsyn, Petr Sulc, Scott Backhaus, and Michael Chertkov. Options for control
+of reactive power by distributed photovoltaic generators. Proceedings of the IEEE, 99(6):
+1063–1073, 2011. doi: 10.1109/JPROC.2011.2116750.
+[12] Johanna Barr and Ritwik Majumder. Integration of distributed generation in the volt/var
+management system for active distribution networks. IEEE Transactions on Smart Grid, 6(2):
+576–586, 2015. doi: 10.1109/TSG.2014.2363051.
+[13] Di Cao, Junbo Zhao, Weihao Hu, Fei Ding, Qi Huang, and Zhe Chen. Distributed voltage
+regulation of active distribution system based on enhanced multi-agent deep reinforcement
+learning. arXiv preprint arXiv:2006.00546, 2020.
+11
+[14] Di Cao, Weihao Hu, Junbo Zhao, Qi Huang, Zhe Chen, and Frede Blaabjerg. A multi-agent
+deep reinforcement learning based voltage regulation using coordinated pv inverters. IEEE
+Transactions on Power Systems, 35(5):4120–4123, 2020.
+[15] Di Cao, Junbo Zhao, Weihao Hu, Fei Ding, Qi Huang, Zhe Chen, and Frede Blaabjerg. Data-
+driven multi-agent deep reinforcement learning for distribution system decentralized voltage
+control with high penetration of pvs. IEEE Transactions on Smart Grid, 2021.
+[16] Haotian Liu and Wenchuan Wu. Online multi-agent reinforcement learning for decentralized
+inverter-based volt-var control. IEEE Transactions on Smart Grid, 2021.
+[17] Frans A Oliehoek and Christopher Amato. A concise introduction to decentralized POMDPs.
+Springer, 2016.
+[18] C.L. Masters. Voltage rise: the big issue when connecting embedded generation to long 11 kv
+overhead lines. Power Engineering Journal, 16(1):5–12, 2002. doi: 10.1049/pe:20020101.
+[19] Giuseppe Fusco and Mario Russo. A decentralized approach for voltage control by multiple
+distributed energy resources. IEEE Transactions on Smart Grid, pages 1–1, 2021. doi: 10.1109/
+TSG.2021.3057546.
+[20] Yashodhan P. Agalgaonkar, Bikash C. Pal, and Rabih A. Jabr. Distribution voltage control
+considering the impact of pv generation on tap changers and autonomous regulators. IEEE
+Transactions on Power Systems, 29(1):182–192, 2014. doi: 10.1109/TPWRS.2013.2279721.
+[21] Panagis N. Vovos, Aristides E. Kiprakis, A. Robin Wallace, and Gareth P. Harrison. Centralized
+and distributed voltage control: Impact on distributed generation penetration. IEEE Transactions
+on Power Systems, 22(1):476–483, 2007. doi: 10.1109/TPWRS.2006.888982.
+[22] Pedram Jahangiri and Dionysios C. Aliprantis. Distributed volt/var control by pv inverters. IEEE
+Transactions on Power Systems, 28(3):3429–3439, 2013. doi: 10.1109/TPWRS.2013.2256375.
+[23] Johannes Schiffer, Thomas Seel, Jörg Raisch, and Tevfik Sezi. Voltage stability and reactive
+power sharing in inverter-based microgrids with consensus-based distributed voltage control.
+IEEE Transactions on Control Systems Technology, 24(1):96–109, 2016. doi: 10.1109/TCST.
+2015.2420622.
+[24] Lingwen Gan, Na Li, Ufuk Topcu, and Steven H Low. Optimal power flow in tree networks. In
+52nd IEEE Conference on Decision and Control, pages 2313–2318. IEEE, 2013.
+[25] Yan Xu, Zhao Yang Dong, Rui Zhang, and David J Hill. Multi-timescale coordinated voltage/var
+control of high renewable-penetrated distribution systems. IEEE Transactions on Power Systems,
+32(6):4398–4408, 2017.
+[26] Emiliano Dall’Anese, Sairaj V. Dhople, and Georgios B. Giannakis. Optimal dispatch of
+photovoltaic inverters in residential distribution systems. IEEE Transactions on Sustainable
+Energy, 5(2):487–497, 2014. doi: 10.1109/TSTE.2013.2292828.
+[27] Weiye Zheng, Wenchuan Wu, Boming Zhang, Hongbin Sun, and Yibing Liu. A fully dis-
+tributed reactive power optimization and control method for active distribution networks. IEEE
+Transactions on Smart Grid, 7(2):1021–1033, 2016. doi: 10.1109/TSG.2015.2396493.
+[28] Zhiyuan Tang, David J Hill, and Tao Liu. Distributed coordinated reactive power control for
+voltage regulation in distribution networks. IEEE Transactions on Smart Grid, 12(1):312–323,
+2020.
+[29] Hongbin Sun, Qinglai Guo, Junjian Qi, Venkataramana Ajjarapu, Richard Bravo, Joe Chow,
+Zhengshuo Li, Rohit Moghe, Ehsan Nasr-Azadani, Ujjwol Tamrakar, Glauco N. Taranto,
+Reinaldo Tonkoski, Gustavo Valverde, Qiuwei Wu, and Guangya Yang. Review of challenges
+and research opportunities for voltage control in smart grids. IEEE Transactions on Power
+Systems, 34(4):2790–2801, 2019. doi: 10.1109/TPWRS.2019.2897948.
+[30] Ankit Singhal, Venkataramana Ajjarapu, Jason Fuller, and Jacob Hansen. Real-time local
+volt/var control under external disturbances with high pv penetration. IEEE Transactions on
+Smart Grid, 10(4):3849–3859, 2019. doi: 10.1109/TSG.2018.2840965.
+12
+[31] Mehdi Zeraati, Mohamad Esmail Hamedani Golshan, and Josep M Guerrero. Voltage quality
+improvement in low voltage distribution networks using reactive power capability of single-
+phase pv inverters. IEEE transactions on smart grid, 10(5):5057–5065, 2018.
+[32] Shengyi Wang, Jiajun Duan, Di Shi, Chunlei Xu, Haifeng Li, Ruisheng Diao, and Zhiwei Wang.
+A data-driven multi-agent autonomous voltage control framework using deep reinforcement
+learning. IEEE Transactions on Power Systems, 35(6):4644–4654, 2020.
+[33] Scott Burger, Jesse D Jenkins, Carlos Batlle López, and José Ignacio Pérez Arriaga. Restructur-
+ing revisited: competition and coordination in electricity distribution systems. 2018.
+[34] Marvin Lerousseau. Design and implementation of an environment for learning to run a power
+network (l2rpn). arXiv preprint arXiv:2104.04080, 2021.
+[35] Robin Henry and Damien Ernst. Gym-anm: Reinforcement learning environments for active
+network management tasks in electricity distribution systems. Energy and AI, page 100092,
+2021.
+[36] Leon Thurner, Alexander Scheidler, Florian Schäfer, Jan-Hendrik Menke, Julian Dollichon,
+Friederike Meier, Steffen Meinecke, and Martin Braun. Pandapower—an open-source python
+tool for convenient modeling, analysis, and optimization of electric power systems. IEEE
+Transactions on Power Systems, 33(6):6510–6521, 2018. doi: 10.1109/TPWRS.2018.2829021.
+[37] Steffen Meinecke, Džanan Sarajli´ c, Simon Ruben Drauz, Annika Klettke, Lars-Peter Lauven,
+Christian Rehtanz, Albert Moser, and Martin Braun. Simbench—a benchmark dataset of electric
+power systems to compare innovative solutions based on power flow analysis. Energies, 13(12),
+2020. ISSN 1996-1073. URL https://www.mdpi.com/1996-1073/13/12/3290.
+[38] Hadi Saadat et al. Power system analysis, volume 2. McGraw-hill, 1999.
+[39] Yashodhan P Agalgaonkar, Bikash C Pal, and Rabih A Jabr. Distribution voltage control
+considering the impact of pv generation on tap changers and autonomous regulators. IEEE
+Transactions on Power Systems, 29(1):182–192, 2013.
+[40] Guangya Yang, Francesco Marra, Miguel Juamperez, Søren Bækhøj Kjær, Seyedmostafa
+Hashemi, Jacob Østergaard, Hans Henrik Ipsen, and Kenn H. B. Frederiksen. Voltage rise
+mitigation for solar pv integration at lv grids studies from pvnet. dk. Journal of Modern Power
+Systems and Clean Energy, 3(3):411–421, 2015. doi: 10.1007/s40565-015-0132-0.
+[41] Antonio Gómez-Expósito, Antonio J Conejo, and Claudio Cañizares. Electric energy systems:
+analysis and operation. CRC press, 2018.
+[42] Ieee standard for interconnection and interoperability of distributed energy resources with
+associated electric power systems interfaces. IEEE Std 1547-2018 (Revision of IEEE Std
+1547-2003), pages 1–138, 2018. doi: 10.1109/IEEESTD.2018.8332112.
+[43] Irina Higgins, Loic Matthey, Arka Pal, Christopher Burgess, Xavier Glorot, Matthew Botvinick,
+Shakir Mohamed, and Alexander Lerchner. beta-vae: Learning basic visual concepts with a
+constrained variational framework. 2016.
+[44] M.E. Baran and F.F. Wu. Network reconfiguration in distribution systems for loss reduction
+and load balancing. IEEE Transactions on Power Delivery, 4(2):1401–1407, 1989. doi:
+10.1109/61.25627.
+[45] H.M. Khodr, F.G. Olsina, P.M. De Oliveira-De Jesus, and J.M. Yusta. Maximum savings
+approach for location and sizing of capacitors in distribution systems. Electric Power Sys-
+tems Research, 78(7):1192–1203, 2008. ISSN 0378-7796. doi: https://doi.org/10.1016/
+j.epsr.2007.10.002. URL https://www.sciencedirect.com/science/article/pii/
+S0378779607002143.
+[46] Ray Daniel Zimmerman, Carlos Edmundo Murillo-Sánchez, and Robert John Thomas. Mat-
+power: Steady-state operations, planning, and analysis tools for power systems research and
+education. IEEE Transactions on power systems, 26(1):12–19, 2010.
+13
+[47] Rajiv K. Varma and Ehsan M. Siavashi. Pv-statcom: A new smart inverter for voltage control in
+distribution systems. IEEE Transactions on Sustainable Energy, 9(4):1681–1691, 2018. doi:
+10.1109/TSTE.2018.2808601.
+[48] Jianhong Wang, Yuan Zhang, Tae-Kyun Kim, and Yunjie Gu. Shapley q-value: A local reward
+approach to solve global reward games. Proceedings of the AAAI Conference on Artificial
+Intelligence, 34(05):7285–7292, Apr 2020.
+[49] Ryan Lowe, Yi Wu, Aviv Tamar, Jean Harb, Pieter Abbeel, and Igor Mordatch. Multi-agent
+actor-critic for mixed cooperative-competitive environments. In Isabelle Guyon, Ulrike von
+Luxburg, Samy Bengio, Hanna M. Wallach, Rob Fergus, S. V. N. Vishwanathan, and Roman
+Garnett, editors, Advances in Neural Information Processing Systems 30: Annual Conference
+on Neural Information Processing Systems 2017, December 4-9, 2017, Long Beach, CA, USA,
+pages 6379–6390, 2017.
+[50] Jakob N Foerster, Gregory Farquhar, Triantafyllos Afouras, Nantas Nardelli, and Shimon
+Whiteson. Counterfactual multi-agent policy gradients. In Thirty-Second AAAI Conference on
+Artificial Intelligence, 2018.
+[51] Johannes Ackermann, Volker Gabler, Takayuki Osa, and Masashi Sugiyama. Reducing
+overestimation bias in multi-agent domains using double centralized critics. arXiv preprint
+arXiv:1910.01465, 2019.
+[52] Ermo Wei and Sean Luke. Lenient learning in independent-learner stochastic cooperative games.
+The Journal of Machine Learning Research, 17(1):2914–2955, 2016.
+[53] Rajiv K. Varma, V. Khadkikar, and Ravi Seethapathy. Nighttime application of pv solar farm
+as statcom to regulate grid voltage. IEEE Transactions on Energy Conversion, 24(4):983–985,
+2009. doi: 10.1109/TEC.2009.2031814.
+[54] Scott Fujimoto, Herke Hoof, and David Meger. Addressing function approximation error in
+actor-critic methods. In International Conference on Machine Learning, pages 1587–1596.
+PMLR, 2018.
+[55] Tuomas Haarnoja, Aurick Zhou, Kristian Hartikainen, George Tucker, Sehoon Ha, Jie Tan,
+Vikash Kumar, Henry Zhu, Abhishek Gupta, Pieter Abbeel, et al. Soft actor-critic algorithms
+and applications. arXiv preprint arXiv:1812.05905, 2018.
+[56] Jimmy Lei Ba, Jamie Ryan Kiros, and Geoffrey E Hinton. Layer normalization. arXiv preprint
+arXiv:1607.06450, 2016.
+[57] Junyoung Chung, Caglar Gulcehre, KyungHyun Cho, and Yoshua Bengio. Empirical evaluation
+of gated recurrent neural networks on sequence modeling. arXiv preprint arXiv:1412.3555,
+2014.
+[58] Tijmen Tieleman and Geoffrey Hinton. Lecture 6.5-rmsprop: Divide the gradient by a running
+average of its recent magnitude. COURSERA: Neural networks for machine learning, 4(2):
+26–31, 2012.
+[59] John Schulman, Philipp Moritz, Sergey Levine, Michael I. Jordan, and Pieter Abbeel. High-
+dimensional continuous control using generalized advantage estimation. In Yoshua Bengio and
+Yann LeCun, editors, 4th International Conference on Learning Representations, ICLR 2016,
+San Juan, Puerto Rico, May 2-4, 2016, Conference Track Proceedings, 2016.
+[60] Yuanyuan Chai, Li Guo, Chengshan Wang, Zongzheng Zhao, Xiaofeng Du, and Jing Pan. Net-
+work partition and voltage coordination control for distribution networks with high penetration
+of distributed pv units. IEEE Transactions on Power Systems, 33(3):3396–3407, 2018. doi:
+10.1109/TPWRS.2018.2813400.
+[61] Maryam Majzoubi, Chicheng Zhang, Rajan Chari, Akshay Krishnamurthy, John Langford,
+and Aleksandrs Slivkins. Efficient contextual bandits with continuous actions. In Hugo
+Larochelle, Marc’Aurelio Ranzato, Raia Hadsell, Maria-Florina Balcan, and Hsuan-Tien Lin,
+editors, Advances in Neural Information Processing Systems 33: Annual Conference on Neural
+Information Processing Systems 2020, NeurIPS 2020, December 6-12, 2020, virtual, 2020.
+14
+A Additional Background of Voltage Control Problem
+A.1 Power Flow Problem
+Recall the power balance equations:
+pP V
+i−pL
+i = v2
+i
+j∈Vi
+qP V
+i−qL
+i =−v2
+i
+j∈Vi
+gij−vi
+j∈Vi
+bij + vi
+j∈Vi
+vj(gijcos θij + bijsin θij), ∀i∈V \{0}
+(3)
+vj(gijsin θij + bijcos θij), ∀i∈V \{0}
+The power flow problem is designed to find the steady-state operation point of power system. After
+measuring power injections pP V
+i−pL
+i and qP V
+i−qL
+i , the bus voltages vi∠θi can be retrieved by
+iteratively solving Eq.3 using Newton-Raphson or Gauss-Seidel method [41]. The power plow serves
+as the fundamental role in grid planning and security assessment by locating any voltage deviations.
+It is also used to generate the observations during MARL training.
+A.2 Voltage Deviation and Control
+Two-Bus Network. To intuitively show how voltage is varied by PVs and how PV inverters can
+participate in voltage control, we give an example for a two-bus distribution network in Figure 9. In
+Figure 9, zi = ri + jxi represents the impedance on branch i; ri and xi are resistance and reactance
+on branch i, respectively; pL
+i and qL
+i denote active and reactive power consumption, respectively;
+pP V
+i and qP V
+i indicate active and reactive PV power generation, respectively. The parent bus voltage
+vip
+is set as reference for the two-bus network.
+The voltage drop ∆vi = vip
+Figure 9: Two-bus electric circuit of the distribution network.
+−vi in Figure 9 can be approximated as follows:
+ri(pL
+i−pP V
+i ) + xi(qL
+i−qP V
+i )
+∆vi =
+vi
+The power loss of the 2-bus network in Figure 9 can be written as:
+(pL
+i−pP V
+i )2 + (qL
+i−qP V
+i )2
+(4)
+Ploss =
+·ri (5)
+v2
+ip
+Traditional Voltage Control Methods. Conventionally, PVs are not allowed to participate in
+voltage control so that qP V
+i is restricted to 0 by the grid code. To export its power, large penetration
+of pP V
+i may increase vi out of its safe range, causing reverse current flow [18, 40]. Voltage control
+devices, such as shunt capacitor (SC) and step voltage regulator (SVR) are usually equipped in the
+network to maintain the voltage level [10]. Nonetheless, these methods cannot respond to intermittent
+solar radiation, e.g. frequent voltage fluctuation due to cloud cover [30]. Additionally, with the rising
+PV penetration in the network, the operation of traditional regulators would be at their control limit
+(i.e. runaway condition) [20].
+Inverter-based Volt/Var Control. To adapt to the continually rising PV penetration, grid-support
+services, such as voltage and reactive power control are required for every new-installed PV by the
+latest grid code IEEE Std-1547™-2018 [42]. For instance, the PV reactive power can be regulated by
+the PV-inverter under partial static synchronous compensator (STATCOM) mode [47]. Depending
+15
+on the voltage deviation levels, the inverter can inject or absorb different amount of reactive power
+exceeding its capacity [53]. This control method is then named as Volt/Var control, as the reactive
+power (with unit VAR) is determined by the voltage (with unit Volt). Intuitively by Eq.4, when the
+voltage increases due to large PV penetration in the lunch-time, the PV inverter absorbs reactive
+power while during the night-time, the full inverter capacity is used to balance voltage fluctuation
+caused by increasing load [20].
+Note that the only control variable in Eq.4 and Eq.5 is qP V
+i which represents the reactive power
+generated by PV. Based on Eq.4, to enforce zero voltage deviation, the reactive power should satisfy
+the following condition
+ri
+qP V
+i =
+(pL
+i−pP V
+i ) + qL
+i (6)
+xi
+Since the ratio ri/xi in the distribution network is extremely large, qP V
+i could become negative (i.e.
+absorbing reactive power) with great magnitude during the period of the peak PV injection (i.e.,
+pP V
+i ≫pL
+i).
+From Eq.5, to achieve the least power loss, qP V
+i needs to be equal to qL
+i (i.e. no reactive power
+injection). This result may conflict with the voltage control target in Eq.6, implying that it is hard
+to simultaneously maintain safe voltage levels and minimise the power losses, even for the two-bus
+network.
+This section only demonstrates a 2-bus network which has linear relationship between voltage
+deviation and PV reactive power. Although the power systems in real world are non-linear and more
+complex, they are with the same phenomenon on the contradiction between voltage control and power
+loss minimisation.
+A.3 Optimal Power Flow
+The optimal power flow (OPF) considered in this paper can be briefly formulated as:
+minqP V
+i p0
+s.t. Eq.1
+|qP V
+i |≤qP V
+i,max, i∈VP V
+vi,min ≤vi ≤vi,max, i∈V \0
+v0 = vref
+(7)
+where p0 and v0 are the active power and reference voltage of the slack bus, respectively. VP V
+is the index set of the buses equipped with PVs. pP V
+i , qP V
+i , and si are the active power, reactive
+power, and the capacity of PV at bus i, respectively. In this paper, each PV inverter is oversized with
+si = 1.2 pi,max,∀i∈VP V . The maximum PV reactive power is qP V
+i,max
+= s2
+i−(pP V
+i )2. Note that
+the objective of the OPF problem is equivalent to minimize the overall power loss.
+Eq.7 may be infeasible due to the large penetration of PVs. In this case, slack variables can be added
+on the voltage constraint.
+A.4 Droop Control
+The droop control, as recommended by IEEE Std-1547™-2018 [42], follows the control strategy
+qP V
+i = f(vi) where qP V
+i and vi are the PV reactive power and the voltage measurement of a PV bus i.
+f(·) is piecewise linear as shown in Figure 10. In detail, vref represents the voltage set point (e.g. 1.0
+p.u.). va and vd represent the saturation regions limited by the PV inverter capacity and the current PV
+active power. There also exists a dead-band between vb and vc that does not require any control. For
+the voltage lower than vb, the inverter provides reactive power proportional to the voltage deviation
+against vref. If the voltage is higher than vc, the inverter absorbs reactive power until convergence
+achieves. The droop control only requires the local voltage measurements that is simple and efficient
+to implement. However, it cannot directly minimise the power losses nor respond to fast voltage
+changes. For simplicity, we set vb = vc = vref in this work.
+16
+𝑞(&)
+VAR (p.u.)
+Providing
+VAR
+𝑑
+𝑣$ 𝑣%
+𝑣& 𝑣'
+𝑣!"#
+Voltage (p.u.)
+Absorbing VAR
+𝑞(*+
+Figure 10: The illustration of the droop control law.
+B COMA with Continuous Actions
+COMA [50] is an MARL algorithm with credit assignments over Q-value functions via the mechanism
+of counterfactual regret, however, it can only serve for the discrete action space. In this paper, to
+enable COMA eligible for the continuous action space, we conduct some tiny adjustments on the
+construction of Q-value for each agent. The original version of calculating each agent’s Q-value
+assignment w.r.t. the discrete actions is shown as follows:
+Qi(s,a) = Q(s,a)−
+πi(a′
+i|τi)Q(s,a−i,a′
+i), (8)
+a′
+i ∈Ai
+where τi is a history of agent i; a−i = ×j̸=iaj. To fit the continuous actions, we simply change Eq.8
+to the form such that
+Qi(s,a) = Q(s,a)−
+Q(s,a−i,a′
+i) dπi(a′
+i|τi), (9)
+a′
+i ∈Ai
+where πi(a′
+i|τi) is a Gaussian distribution over a′
+i. In practice, a′
+i ∈Ai Q(s,a−i,a′
+i) dπi(a′
+i|τi) is
+approximated via Monte Carlo sampling, so it can be written as follows:
+1
+Qi(s,a) = Q(s,a)−
+M
+k=1
+Q(s,a−i,(a′
+i)k), (a′
+i)k ∼πi(a′
+i|τi). (10)
+M
+C Experimental Settings
+The source code of experimentation will be released after acceptance of paper for the easy reproduc-
+tions and further studies.
+C.1 Algorithm Settings and Training Details
+Since IDDPG and MADDPG do not possess any extra hyperparameters, we only introduce the
+hyperparameters of COMA, MATD3, SQDDPG, IPPO, and MAPPO that we used in experiments.
+Common Settings. All algorithms are trained with online learning (i.e., for the on-policy algorithms
+like IPPO and MAPPO the behaviour policies are updated once at the end of each episode; for the
+on-policy algorithm like COMA the behaviour policies/values are updated every 60 time steps; and
+for the off-policy algorithms like SQDDPG, IDDPG and MADDPG the behaviour policies/values
+are updated every 60 time steps, where all data used for training are collected online) and the target
+policy/critic networks are updated every interval that is twice as the update interval of behaviour
+policy/critic introduced above. Taking the lessons from [48, 54], the algorithms except for MAPPO
+and IPPO update critic networks with 10 epochs while update policy networks with 1 epoch. All
+algorithms are trained with the normalised reward and the action bound enforcement trick [55] that
+works better than the hard clipping in our experiments. The target update learning rate is set to 0.1.
+The gradient is clipped with L1 norm and the clip bound is set to 1. The batch size of training data is
+17
+set to 32 and the replay buffer size for off-policy algorithms is set to 5,000. Agent ID is concatenated
+with the observation and the layer normalisation [56] is applied to the first layer after the observation
+input. The parameters are shared among agents in this experiment. As for the policy network, RNN
+with GRUs [57] is applied as a filter to solve the partial observation problems. The critic network
+is constructed with pure MLPs. The general settings of the policy and critic networks are shown
+in Table 1. During training, a fixed standard deviation as 1.0 is applied to conduct the exploration.
+For the policy loss with entropy, the entropy penalty is set to 1e-3. The parameter initialisation is
+implemented by sampling from normal distribution with N(0,0.1). RMSProp [58] is used as the
+optimizer, with the learning rate of 1e-4 for updating both policies and critics.
+COMA. The sample size M of COMA for continuous actions proposed in this paper is set to 10 in
+experiments.
+MATD3. The clip boundary c for clipping the exploration noise is set to 1 in experiments.
+SQDDPG. The sample size M of SQDDPG is set to 10 in experiments.
+IPPO and MAPPO. We apply generalised advantage estimation (GAE) [59] to evaluate the return
+with λ= 0.95. The value loss coefficient is set to 2. The ϵfor clipping the objective function is set to
+0.4. We also normalise the advantages during training to reduce variance. 10 epochs of training are
+conducted for each time of update.
+All hyperparameters reported above are tuned by the grid search and the best ones are selected as the
+final choices.
+Table 1: The general specifications for policy and value networks.
+NETWORK STRUCTURE
+POLICY LINEAR(STATE
+_
+DIM, 64) →LAYERNORM() →RELU() →GRU(64, 64) →LINEAR(64, ACTION
+_
+DIM)
+CRITIC LINEAR(INPUT
+_
+DIM, 64) →LAYERNORM() →RELU() →LINEAR(STATE
+_
+DIM, 64) →RELU() →LINEAR(64, OUTPUT
+_
+DIM)
+In addition to the training details introduced in the main part of paper, we expose more in this section.
+At the initial state we randomly sample reactive power of generators so that the experiments are more
+realistic, i.e. to test whether the agents can solve any emergent situations. The training time varies
+from 2.5 to 4 hrs, dependent on the selection of scenarios and algorithms.
+C.2 Process of Simulations
+We show the flow chart in Figure 11 to illustrate the process of the execution of the simulation for
+distributed active voltage control on power distribution networks. At the beginning of each episode, a
+series of consecutive PV and load profiles for 480 time steps (i.e. 1 day) is in buffer. For each time
+step, the relevant PV and load profile are extracted, combined with the voltage status computed by
+Pandapower [36] (i.e., the power flow is calculated) to form the next state. Additionally, the reward is
+also calculated according to the results computed by Pandapower. Before fed to agents, the received
+state will be split to a batch of observations as per the region where each agent is located. Each
+agent only receives a local observation and the global reward, then it makes next decision. The above
+procedure is repeated until the end of an episode.
+C.3 Voltage Barrier Functions
+In this paper, we compare 3 different voltage barrier functions applied in this work. The L1-shape
+can be written as follows:
+lv(vk) = |vk−vref|, ∀k∈V. (11)
+The L2-shape can be written as follows:
+lv(vk) = (vk−vref)2
+, ∀k∈V. (12)
+The Bowl-shape can be written as follows:
+lv(vk) = a·|vk−vref|−b If |vk−vref|>0.05,
+−c·N(vk |vref,0.1) + d Otherwise,
+(13)
+18
+Pandapower
+Reward
+Next State
+State
+Data
+Environment
+Actions
+Agent 1
+Agent 1 Agent 1 Agent 1 Agent 1, 2, …, N
+Preprocessor
+Figure 11: The flow chart of the implementation of environment for distributed active voltage control
+on power distribution networks.
+where a,b,c,dare 4 hyperparameters to adjust the shape and smoothness of function that are set to
+2,0.095,0.01,0.04 respectively in this work; N(vk |vref,0.1) is a density function for the normal
+distribution with the mean as vref and the standard deviation as 0.1. In addition to the significance of
+satisfying the objective of active voltage control, this construction can also be interpreted as a sort of
+statistical implication. vk is assumed to follow the Laplace distribution outside the safety range while
+it is assumed to follow the normal distribution inside the safety range. Thereafter, the active voltage
+control problem can be transformed to the maximum likelihood estimation (MLE) over a mixture
+distribution of voltage with a constraint on reactive power generations.
+C.4 Reward for the Safety of Power Networks
+Although the action range has been restricted to avoid the violence of the loading capacity of power
+networks, in experiments there still exists possibilities that this accident could happen. To resolve
+this problem, if the violence of the loading capacity appears, the system would backtrack to the last
+state as well as terminate the simulation and give a penalty of−200 as the reward instead of the one
+shown in the main part of paper.
+D Environmental Settings
+We present 3 MV/LV distribution network models, each of which is composed of distinct topology
+and parameters, a load profile (including both active and reactive powers) describing different user
+behaviours, and a PV profile describing the active power generation from PVs. Although it is
+possible to partition the control regions by the voltage sensitivity of each bus [60], they are commonly
+determined by different distribution network owners in practice. Consequently, the control regions in
+this paper are partitioned by the shortest path between the coupling bus and the terminal bus. Besides,
+each region consists of 1-4 PVs depending on the zonal sizes.
+D.1 Network Topology
+A summary of the 3 networks is recorded in Table 2 and the specific topologies are demonstrated in
+Figure 12.
+33-bus. The 33-bus network is modified from case33bw in MATPOWER [46] and PandaPower [36].
+To guarantee the tree structure, similar to [16], we drop lines 33-37 to avoid any loops. 6 PVs are
+added unevenly on bus 13 and 18 (zone 1), bus 22 (zone 2), bus 25 (zone 3), bus 29 and 33 (zone 4).
+The PV-load ratio is PR= 2.5.
+141-bus. procedure is followed as 33-bus network.
+The 141-bus network is modified from case141 in MATPOWER [46] as well. A similar
+19
+(a) 33-bus network. (b) 141-bus network. (c) 322-bus network.
+Figure 12: Topologies of power networks. The yellow square is the reference bus (a.k.a. the slack
+bus) and each blue circle is a non-reference bus. Transformers are highlighted as double-circles.
+Table 2: Network specifications
+Rated Voltage No. Loads No. Regions No. PVs pL
+max pP V
+max
+33-bus 12.66 kV 32 4 6 3.5 MW 8.75 MW
+141-bus 12.5 kV 84 9 22 20 MW 80 MW
+322-bus 110-20-0.4 kV 337 22 38 1.5 MW 3.75 MW
+322-bus. The proposed 322-bus network consists of an external 110-kV bus, a long medium-voltage
+(20 kV) line (25 buses in total) and 3 LV feeders (0.4 kV) representing rural (128 buses), semi-urban
+(110 buses), and urban (58 buses) areas defined by SimBench [37]. Areas with different voltage
+levels are connected though standard transformers defined in PandaPower [36]. The rural area has
+the lowest power consumption level and some buses are with no loads, while more than one load are
+allowed to locate on a bus in the urban area, so the total number of loads is higher than the number of
+buses in the 322-bus network. The users can also generate their own synthetic networks by following
+out procedure. To simplify the settings, we aggregate the multiply loads at each bus into one.
+D.2 Data Descriptions.
+Load Profiles. The load profile of each network is modified based on the real-time Portuguese
+electricity consumption accounting for 232 consumers of 3 years.9 The original dataset contains 370
+residential and industrial clients electricity usage from 2011 to 2014 with 15-min resolution. As
+some of the data does not start at the beginning, we collect the data from 2012-01-01 00:15:00 and
+delete the locations that contain more than 20 missing data. The remaining missing data (mostly
+because of the winter time to daylight saving time switch) is interpolated linearly. The load data is
+then interpolated with 3-min resolution which is consistent with the real-time control period in the
+grid. The final data size is 526080 ×232 accounting for load profiles for 232 consumers of 1096 days
+(three years). We then remove the outliers that are outside 7σagainst the mean value. For 33-bus and
+141-bus networks, the 232 load profiles are randomly assigned to each bus. For 322-bus network,
+repeated load profiles are allowed. In practice, Gaussian noises are added to load active and reactive
+powers.
+PV Profiles. Ten cities/regions/provinces in Belgium, Netherlands, and Luxembourg are considered
+to represent the distinct zonal solar radiation levels, including Antwerp, Brussels, Flemish-Brabant (a
+province of Belgium), Hainaut (a province of Belgium), Liege, Limburg (a province of Netherland),
+Luxembourg, Namur, Walloon-Brabant (a province of Belgium), and West-Flanders (a province of
+Belgium). The PV data is collected from Elia group,10 a Belgium’s power network operator. The PV
+data is also interpolated with 3-min resolution resulting in 526080 ×10 data in total. For 33-bus (with
+4 regions) and 141-bus (with 9 regions) networks, PV profiles are randomly assigned to each region.
+For 322-bus (with 22 regions) system, different regions can have the same PV profiles. Note that the
+9https://archive.ics.uci.edu/ml/datasets/ElectricityLoadDiagrams20112014.
+10https://www.elia.be/en/grid-data/power-generation/solar-pv-power-generation-data.
+20
+PV Generation
+PV Generation
+PV Generation
+PV Generation
+Load Consumption
+Load Consumption
+Load Consumption
+Load Consumption
+PVs in the same control region share the same PV profiles as they are geometrically contiguous. In
+real-time, we also add Gaussian noise to the PV active power.
+We summarise the load and PV profiles of different scales in Figure 13-19 below.
+Figure 13 illustrates the total PV active power generation and active load consumption in 33-bus
+network. Figure 14 illustrates four distinct PV buses in 33-bus network of January and July. Note
+that bus-13 and bus-18 are in the same region, so they have the same PV profiles.
+Figure 15 illustrates the total PV active power generation and active load consumption in 141-bus
+network. Figure 16 illustrates four distinct PV buses in 141-bus network of January and July. Note
+that bus-36 and bus-111 are in the same region, so they have the same PV profiles.
+Figure 17 illustrates the total PV active power generation and active load consumption in 322-bus
+network. Figure 18 illustrates four distinct PV buses in 322-bus network of January and July.
+Figure 19 illustrates the power factors (PFs) of the three systems under test. Higher power factors
+(>0.9) usually represents the residential consumers while low power factors (<0.5) can represent
+the industrial consumers.
+6
+6
+6
+6
+Active Power (MW)
+5
+4
+3
+2
+1
+Active Power (MW)
+5
+4
+3
+2
+1
+Active Power (MW)
+5
+4
+3
+2
+1
+Active Power (MW)
+5
+4
+3
+2
+1
+0
+0 2 4 6 8 10 12 14 16 18 20 22
+Hour
+0
+0 2 4 6 8 10 12 14 16 18 20 22
+Hour
+0
+1 6 11 16 21 26
+Days
+0
+1 6 11 16 21 26
+Days
+(a)
+(b)
+(c)
+(d)
+Figure 13: Total power of 33-bus network: (a): a winter day, (b): a summer day, (c): a winter month
+(January), (d): a summer month (July)
+2.0
+2.0
+2.0
+2.0
+1.5
+1.0
+0.5
+Active Power (MW)
+1.5
+1.5
+1.5
+1.0
+1.0
+1.0
+0.5
+0.5
+0.5
+0.0
+1 6 11 16 21 26 31
+Days
+0.0
+1 6 11 16 21 26 31
+Days
+0.0
+1 6 11 16 21 26 31
+Days
+0.0
+1 6 11 16 21 26 31
+Days
+2.0
+2.0
+2.0
+2.0
+1.5
+1.5
+1.5
+1.5
+1.0
+1.0
+1.0
+1.0
+0.5
+0.5
+0.5
+0.5
+0.0
+1 6 11 16 21 26 31
+Days
+0.0
+1 6 11 16 21 26 31
+Days
+0.0
+1 6 11 16 21 26 31
+Days
+0.0
+1 6 11 16 21 26 31
+Days
+(a)
+(b)
+(c)
+(d)
+Figure 14: Daily power of 33-bus network: active PV power generation and active load consumption
+for different buses in 33-bus network. (a): bus-13, (b): bus-18, (c): bus-22 (d): bus-25. The first row:
+power in a winter month (January), second row: power in a summer month (July).
+Active Power (MW)
+PV Generation
+Load Consumption
+PV Generation
+Load Consumption
+Active Power (MW)
+PV Generation
+Load Consumption
+Active Power (MW)
+PV Generation
+Load Consumption
+Active Power (MW)
+PV Generation
+Load Consumption
+Active Power (MW)
+PV Generation
+Load Consumption
+Active Power (MW)
+PV Generation
+Load Consumption
+Active Power (MW)
+PV Generation
+Load Consumption
+PV Generation
+Load Consumption
+PV Generation
+Load Consumption
+PV Generation
+Load Consumption
+PV Generation
+Load Consumption
+50
+50
+50
+50
+Active Power (MW)
+40
+30
+20
+10
+Active Power (MW)
+40
+30
+20
+10
+Active Power (MW)
+40
+30
+20
+10
+Active Power (MW)
+40
+30
+20
+10
+0
+0
+0 2 4 6 8 10 12 14 16 18 20 22
+Hour
+0 2 4 6 8 10 12 14 16 18 20 22
+Hour
+0
+1 6 11 16 21 26
+Days
+0
+1 6 11 16 21 26
+Days
+(a)
+(b)
+(c)
+(d)
+Figure 15: Total power of 141-bus network: (a): a winter day, (b): a summer day, (c): a winter month
+(January), (d): a summer month (July)
+21
+PV Generation
+Load Consumption
+PV Generation
+Load Consumption
+PV Generation
+Load Consumption
+PV Generation
+Load Consumption
+PV Generation
+Load Consumption
+ 3 9   H Q H U D W  R Q
+  R D G  & R Q V X P S W  R Q
+PV Generation
+Load Consumption
+ 3 9   H Q H U D W  R Q
+  R D G  & R Q V X P S W  R Q
+PV Generation
+Load Consumption
+Active Power (MW)
+Active Power (MW)
+5
+4
+3
+2
+1
+0
+1 6 11 16 21 26 31
+Days
+5
+4
+PV Generation
+Load Consumption
+3
+2
+1
+0
+1 6 11 16 21 26 31
+Days
+Active Power (MW)
+Active Power (MW)
+5
+4
+3
+2
+1
+0
+1 6 11 16 21 26 31
+Days
+5
+4
+PV Generation
+Load Consumption
+3
+2
+1
+0
+1 6 11 16 21 26 31
+Days
+Active Power (MW)
+Active Power (MW)
+5
+4
+3
+2
+1
+0
+1 6 11 16 21 26 31
+Days
+5
+4
+PV Generation
+Load Consumption
+3
+2
+1
+0
+1 6 11 16 21 26 31
+Days
+Active Power (MW)
+Active Power (MW)
+5
+4
+3
+2
+1
+0
+1 6 11 16 21 26 31
+Days
+5
+4
+3
+2
+1
+0
+1 6 11 16 21 26 31
+Days
+(a)
+(b)
+(c)
+(d)
+Figure 16: Daily power of 141-bus network: active PV power generation and active load consumption
+for different buses in 141-bus network. (a): bus-36, (b): bus-77, (c): bus-100 (d): bus-111. The first
+row: power in winter month (January), second row: power in summer month (July).
+ $ F W  Y H  3 R  H U   0  
+   
+   
+   
+   
+   
+   
+                              
+  R X U
+Active Power (MW)
+2.5
+2.0
+1.5
+1.0
+0.5
+0.0
+ $ F W  Y H  3 R  H U   0  
+0 2 4 6 8 10 12 14 16 18 20 22
+Hour
+   
+   
+   
+   
+   
+   
+               
+ ' D  V
+Active Power (MW)
+2.5
+2.0
+1.5
+1.0
+0.5
+0.0
+1 6 11 16 21 26
+Days
+(a)
+(b)
+(c)
+(d)
+Figure 17: Total power of 322-bus network: (a): a winter day, (b): a summer day, (c): a winter month
+(January), (d): a summer month (July)
+0.10
+0.08
+PV Generation
+Load Consumption
+0.06
+0.04
+0.02
+0.00
+1 6 11 16 21 26 31
+Days
+0.10
+0.08
+0.06
+0.04
+0.02
+0.00
+0.10
+0.08
+0.06
+0.04
+0.02
+0.00
+0.10
+0.08
+0.06
+0.04
+0.02
+0.00
+1 6 11 16 21 26 31
+Days
+1 6 11 16 21 26 31
+Days
+1 6 11 16 21 26 31
+Days
+0.10
+0.08
+0.06
+0.04
+0.02
+0.00
+1 6 11 16 21 26 31
+Days
+0.10
+0.08
+0.06
+0.04
+0.02
+0.00
+1 6 11 16 21 26 31
+Days
+Active Power (MW)
+0.10
+0.08
+0.06
+0.04
+0.02
+0.00
+1 6 11 16 21 26 31
+Days
+Active Power (MW)
+0.10
+0.08
+0.06
+0.04
+0.02
+0.00
+1 6 11 16 21 26 31
+Days
+(a)
+(b)
+(c)
+(d)
+Figure 18: Daily power of 322-bus network: active PV power generation and active load consumption
+for different buses in 322-bus network. (a): bus-54, (b): bus-147, (c): bus-297 (d): bus-322. The first
+row: power in winter month (January), second row: power in summer month (July).
+1.0
+1.0
+1.0
+Power Factor
+0.8
+0.6
+0.4
+0.2
+0.0
+1 6 11 16 21 26 31
+Days
+(a)
+Power Factor
+0.8
+0.6
+0.4
+0.2
+0.0
+1 6 11 16 21 26 31
+Days
+(b)
+Power Factor
+0.8
+0.6
+0.4
+0.2
+0.0
+1 6 11 16 21 26 31
+Days
+(c)
+Figure 19: Power factors of four buses in (a): 33-bus, (b): 141-bus, and (c): 322-bus networks
+Active Power (MW)
+Active Power (MW)
+PV Generation
+Load Consumption
+Active Power (MW)
+PV Generation
+Load Consumption
+Active Power (MW)
+PV Generation
+Load Consumption
+Active Power (MW)
+PV Generation
+Load Consumption
+Active Power (MW)
+PV Generation
+Load Consumption
+PV Generation
+Load Consumption
+PV Generation
+Load Consumption
+Bus 1
+Bus 2
+Bus 15
+Bus 28
+Bus 1
+Bus 4
+Bus 54
+Bus 61
+Bus 24
+Bus 25
+Bus 136
+Bus 219
+22
+E Extra Experimental Results
+E.1 Extra Results during Training
+In addition to the control rate (CR) and power loss (PL) introduced in the main part of paper, we also
+introduce 2 extra metrics to evaluate the performances of algorithms during training.
+• Voltage out of control ratio (VR): It calculates the average of the ratio of voltage outside the safety
+range (i.e. 0.95-1.05 p.u.) per time step during an episode.
+• Q loss (QL): It calculates the average of the mean reactive power generations by agents per time
+step during an episode.
+Similar to the results before, all performances are measured by the median metrics of 5 random seeds
+and each test is conducted by 10 randomly selected episodes.
+Ratio
+0.2
+0.1
+0.0
+0 100 200 300 400
+Episode
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+Ratio
+0.2
+0.1
+0.0
+0 100 200 300 400
+Episode
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+Ratio
+0.2
+0.1
+0.0
+0 100 200 300 400
+Episode
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+(a) L1-33.
+(b) L2-33.
+(c) BL-33.
+Ratio
+0.6
+0.3
+0.0
+0 100 200 300 400
+Episode
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+Ratio
+0.6
+0.3
+0.0
+0 100 200 300 400
+Episode
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+Ratio
+0.6
+0.3
+0.0
+0 100 200 300 400
+Episode
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+(d) L1-141.
+(e) L2-141.
+(f) BL-141.
+Ratio
+0.2
+0.1
+0.0
+0 100 200 300 400
+Episode
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+Ratio
+0.6
+0.3
+0.0
+0 100 200 300 400
+Episode
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+Ratio
+0.2
+0.1
+0.0
+0 100 200 300 400
+Episode
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+(g) L1-322.
+(h) L2-322.
+(i) BL-322.
+Figure 20: Voltage out of control ratio of algorithms with different reward functions consisting of
+distinct voltage barrier functions. The sub-caption indicates barrier-scenario and BL is the contraction
+of Bowl.
+23
+Loss
+0.70
+0.35
+0.00
+0 100 200 300 400
+Episode
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+Loss
+0.70
+0.35
+0.00
+0 100 200 300 400
+Episode
+0.70
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+Loss
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+0.35
+0.00
+0 100 200 300 400
+Episode
+(a) L1-33.
+(b) L2-33.
+(c) BL-33.
+Loss
+0.70
+0.35
+0.00
+0 100 200 300 400
+Episode
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+Loss
+0.70
+0.35
+0.00
+0 100 200 300 400
+Episode
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+Loss
+0.70
+0.35
+0.00
+0 100 200 300 400
+Episode
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+(d) L1-141.
+(e) L2-141.
+(f) BL-141.
+Loss
+0.06
+0.03
+0.00
+0 100 200 300 400
+Episode
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+Loss
+0.06
+0.03
+0.00
+0 100 200 300 400
+Episode
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+Loss
+0.06
+0.03
+0.00
+0 100 200 300 400
+Episode
+COMA
+IDDPG
+IPPO
+MADDPG
+MAPPO
+SQDDPG
+MATD3
+(g) L1-322.
+(h) L2-322.
+(i) BL-322.
+Figure 21: Q (reactive power) losses of algorithms with different reward functions consisting of
+distinct voltage barrier functions. The sub-caption indicates barrier-scenario and BL is the contraction
+of Bowl.
+E.2 Extra Results for Case Studies
+In this section, we show more results on the case studies for the comparison between MARL and
+the traditional control methods (i.e. OPF and droop control). For 141-bus network, MATD3 trained
+by Bowl-shape voltage barrier function acts as the candidate for MARL. For 322-bus network,
+MADDPG trained by L2-shape voltage barrier function acts as the candidate for MARL.
+One Bus in 141-Bus Network. Figure 22 shows the results for a typical bus in the 141-bus network.
+In summer, all methods can control the voltage within the safety range in most of time, except that
+MARL fails to control the voltage from 20:00 to 22:00. Nonetheless, the power loss of MARL is
+lower than the droop control. In winter, all methods can control the voltage within the safety range,
+however, MARL behaves exclusively on generating the reactive power, i.e. generating more reactive
+power, while the power loss of MARL is still lower than that of the droop control.
+One Bus in 322-Bus Network. Figure 23 shows the results for a typical bus in the 322-bus network.
+In summer, only droop control can control the voltage within the safety range. MARL and OPF
+cannot control the voltage within the safety range from 10:00 to 14:00 when the PV active power is
+extremely high. The bad performance of OPF is possibly due to the reason that the 322-bus network
+is so large and complicated that it may suffer the computational catastrophe w.r.t. the inverse of the
+24
+topological matrix. In winter, all methods can control the voltage within the safety range, though
+the voltage at this time is originally within the safety range without no control. It is so strange that
+MARL decrease the voltage so that it is near the lower bound of the safety range. Apparently, the
+strategy of MARL for this case is suboptimal. The additional penetration of reactive power by MARL
+induces the excessive power loss. The intrinsic reason of this phenomenon deserves to be investigated
+in the future work.
+Analysis for All Buses. To give the whole picture of active voltage control for the days we selected
+for demonstrations above, we show the status of all buses in Figure 24 for the 33-bus network, Figure
+25 for the 141-bus network and Figure 26 for the 322-bus network. In winter, all methods can control
+the voltages of all buses within the safety range whatever the scenario is. We just focus on the results
+for summer in the following discussion. For the 33-bus network and the 141-bus network, it is
+obvious that the traditional control methods can control the voltage within the safety range, while
+MARL loses control on some buses from 18:00 to 24:00. This implies that MARL may tend to learn
+solving the the situations of high PV penetrations. The possible reason could be that the situations of
+high penetrations appear more frequently, which leads to a known problem existing in MARL called
+relative overgeneralisation [52]. For the 322-bus network, the performance of droop control is far
+better than OPF and MARL. The reason for the failure of OPF is the computational burden as we
+stated before. It is worth noting that droop control relies on a high-bandwidth inner loop in inverter
+controller so the effective control rate is much higher than the sample rate [61].
+1.10
+6.00
+6.00
+Voltage (p.u.)
+1.05
+1.00
+0.95
+Power (MW/MVAR)
+5.00
+4.00
+2.00
+0.00
+-2.00
+Power Loss (MW)
+4.00
+3.00
+2.00
+1.00
+0.90
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+-4.00
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+0.00
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+1.10
+3.00
+0.80
+1.05
+2.00
+0.60
+1.00
+1.00
+0.40
+0.95
+0.00
+0.20
+0.90
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+-1.00
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+0.00
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+(a) Voltage.
+(b) Power.
+(c) Power Loss.
+Figure 22: Compare MARL with traditional control methods on a typical bus during a day for the
+141-bus network. 1st row: results for summer. 2nd row: results for winter. None and limit in (a)
+represent the voltage with no control and the safety range respectively. P and Q in (b) indicate the PV
+active power and the reactive power by various methods.
+None
+MARL
+Droop
+OPF
+Limit
+P
+Q-MARL
+Q-Droop
+Q-OPF
+MARL
+Droop
+OPF
+Voltage (p.u.)
+None
+MARL
+Droop
+OPF
+Limit
+Power (MW/MVAR)
+P
+Q-MARL
+Q-Droop
+Q-OPF
+Power Loss (MW)
+MARL
+Droop
+OPF
+E.3 Extra Results during Testing
+To show the results more convincingly, we also report the mean test results on the final models of
+MARL after training. The tests on each algorithm are repeated with 10 randomly selected initial
+states. Noticeably, we report both mean and standard deviation to exhibit the randomness of 10 tests
+for the metrics of continuous values. Since the metrics of ratio does not satisfy the hypothesis of
+normality, we just report the the mean of 10 tests for appropriateness. Additionally, we also report
+the results of the traditional control methods with 100 randomly selected episodes.
+We now introduce the metrics used in the Table 3-5.
+• % V. Out of Control: The average of the ratio of the voltages out of control per time step during
+each episode.
+• % V. below 0.95vref: The average ratio of the voltages below 0.95vref per time step during each
+episode.
+• % V. above 1.05vref: The average ratio of the voltages above 1.05vref per time step during each
+episode.
+25
+Voltage (p.u.)
+Voltage (p.u.)
+None
+MARL
+Droop
+OPF
+Limit
+None
+MARL
+Droop
+OPF
+Limit
+Power (MW/MVAR)
+Power (MW/MVAR)
+P
+Q-MARL
+Q-Droop
+Q-OPF
+P
+Q-MARL
+Q-Droop
+Q-OPF
+Voltage (p.u.)
+Voltage (p.u.)
+Power Loss (MW)
+Power Loss (MW)
+MARL
+Droop
+OPF
+MARL
+Droop
+OPF
+1.20
+0.20
+0.30
+1.15
+0.25
+0.10
+1.10
+0.20
+1.05
+0.00
+0.15
+1.00
+0.10
+-0.10
+0.95
+0.05
+0.90
+-0.20
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+0.00
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+1.10
+0.03
+0.04
+0.02
+1.05
+0.03
+0.01
+1.00
+0.00
+0.02
+-0.01
+0.95
+0.01
+-0.02
+0.90
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+-0.03
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+0.00
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+(a) Voltage.
+(b) Power.
+(c) Power Loss.
+Figure 23: Compare MARL with traditional control methods on a typical bus during a day for the
+322-bus network. 1st row: results for summer. 2nd row: results for winter. None and limit in (a)
+represent the voltage with no control and the safety range respectively. P and Q in (b) indicate the PV
+active power and the reactive power by various methods.
+1.10
+1.10
+1.10
+1.05
+1.05
+1.05
+1.00
+1.00
+1.00
+0.95
+0.95
+0.95
+0.90
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+0.90
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+0.90
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+(a) OPF-summer.
+(b) Droop-summer.
+(c) MARL-summer.
+1.10
+1.10
+1.10
+Voltage (p.u.)
+1.05
+1.05
+1.05
+1.00
+1.00
+1.00
+0.95
+0.95
+0.95
+0.90
+0.90
+0.90
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+(d) OPF-winter.
+(e) Droop-winter.
+(f) MARL-winter.
+Figure 24: The status of all buses for a day on 33-bus network. The green lines are the variation
+of the voltage of buses and red dashed line is the safety boundary. Each caption above indicates
+method-season.
+Voltage
+Limit
+Voltage
+Limit
+Voltage
+Limit
+Voltage (p.u.)
+Voltage
+Limit
+Voltage (p.u.)
+Voltage (p.u.)
+Voltage
+Limit
+Voltage
+Limit
+• % CR: The ratio of time steps where all buses’ voltages being under control during each episode.
+• V. Dev.: The average voltage deviations (away from the vref) during each episode.
+• Max V. Drop Dev.: The average of the maximum deviation of voltage drop (i.e. below 0.95vref) per
+time step during each episode.
+• Max V. Rise Dev.: The average of the maximum deviation of voltage rise (i.e. above 1.05vref) per
+time step during each episode.
+• PL: The average of the total power loss over all buses per time step dyuring each episode.
+26
+Voltage
+Limit
+Voltage
+Limit
+Voltage
+Limit
+Voltage (p.u.)
+Voltage
+Limit
+Voltage (p.u.)
+Voltage (p.u.)
+Voltage
+Limit
+Voltage (p.u.)
+Voltage (p.u.)
+Voltage
+Limit
+1.10
+1.05
+1.00
+0.95
+0.90
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+(a) OPF-summer.
+1.10
+Voltage (p.u.)
+1.05
+1.00
+0.95
+0.90
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+(d) OPF-winter.
+1.10
+1.05
+1.00
+0.95
+0.90
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+(b) Droop-summer.
+1.10
+1.05
+1.00
+0.95
+0.90
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+(e) Droop-winter.
+1.10
+1.05
+1.00
+0.95
+0.90
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+(c) MARL-summer.
+1.10
+1.05
+1.00
+0.95
+0.90
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+(f) MARL-winter.
+Figure 25: The status of all buses for a day on 141-bus network. The green lines are the variation
+of the voltage of buses and red dashed line is the safety boundary. Each caption above indicates
+method-season.
+Voltage
+Limit
+Voltage
+Limit
+Voltage
+Limit
+Voltage (p.u.)
+Voltage
+Limit
+Voltage (p.u.)
+Voltage (p.u.)
+Voltage
+Limit
+Voltage (p.u.)
+Voltage (p.u.)
+Voltage
+Limit
+1.10
+1.05
+1.00
+0.95
+0.90
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+(a) OPF-summer.
+1.10
+Voltage (p.u.)
+1.05
+1.00
+0.95
+0.90
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+(d) OPF-winter.
+1.10
+1.05
+1.00
+0.95
+0.90
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+(b) Droop-summer.
+1.10
+1.05
+1.00
+0.95
+0.90
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+(e) Droop-winter.
+1.10
+1.05
+1.00
+0.95
+0.90
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+(c) MARL-summer.
+1.10
+1.05
+1.00
+0.95
+0.90
+0 2 4 6 8 10 12 14 16 18 20 22 24
+Hour
+(f) MARL-winter.
+Figure 26: The status of all buses for a day on 322-bus network. The green lines are the variation
+of the voltage of buses and red dashed line is the safety boundary. Each caption above indicates
+method-season.
+27
+Table 3: The mean test results on the 33-bus network with 10 randomly selected episodes for MARL
+and 100 random selected episodes for the traditional control methods. The results are recorded with
+mean (±std.).
+METHOD % V. OUT OF CONTROL % V. BELOW % V. ABOVE % CR V. DEV. MAX V. DROP DEV. MAX V. RISE DEV. PL
+NO CONTROL 6.3 5.1 1.2 70.6 0.021 ±0.005 0.036 ±0.011 0.010 ±0.015 0.069 ±0.036
+DROOP CONTROL 0.0 0.0 0.0 100.0 0.011 ±0.002 0.025 ±0.006 0.003 ±0.004 0.082 ±0.064
+OPF 0.0 0.0 0.0 100.0 0.014 ±0.003 0.020 ±0.009 0.011 ±0.013 0.056 ±0.046
+IDDPG-L1 1.1 0.7 0.4 90.3 0.014 ±0.002 0.000 ±0.000 0.001 ±0.000 0.066 ±0.007
+MADDPG-L1 0.9 0.4 0.5 92.0 0.013 ±0.000 0.000 ±0.000 0.001 ±0.000 0.071 ±0.004
+COMA-L1 0.2 0.0 0.2 97.0 0.011 ±0.000 0.000 ±0.000 0.000 ±0.000 0.105 ±0.002
+IPPO-L1 4.5 0.0 4.5 68.1 0.015 ±0.001 0.000 ±0.000 0.008 ±0.002 0.148 ±0.010
+MAPPO-L1 4.5 0.0 4.5 68.2 0.015 ±0.001 0.008 ±0.002 0.008 ±0.002 0.154 ±0.005
+MATD3-L1 1.0 0.8 0.2 91.6 0.015 ±0.001 0.000 ±0.000 0.000 ±0.000 0.064 ±0.004
+SQDDPG-L1 1.5 0.8 0.3 87.2 0.015 ±0.001 0.000 ±0.000 0.001 ±0.000 0.068 ±0.005
+IDDPG-L2 4.4 3.5 0.9 75.4 0.020 ±0.001 0.001 ±0.000 0.001 ±0.001 0.067 ±0.005
+MADDPG-L2 2.8 2.0 0.8 79.7 0.018 ±0.000 0.001 ±0.000 0.001 ±0.000 0.063 ±0.004
+COMA-L2 1.7 0.9 0.8 85.8 0.015 ±0.001 0.000 ±0.000 0.001 ±0.000 0.068 ±0.004
+IPPO-L2 4.5 0.1 4.5 72.0 0.015 ±0.001 0.000 ±0.000 0.009 ±0.001 0.142 ±0.008
+MAPPO-L2 4.7 0.0 4.7 70.9 0.015 ±0.000 0.000 ±0.000 0.010 ±0.001 0.139 ±0.005
+MATD3-L2 5.4 4.9 0.5 75.0 0.021 ±0.001 0.002 ±0.001 0.001 ±0.000 0.074 ±0.004
+SQDDPG-L2 4.9 3.9 1.1 74.0 0.021 ±0.001 0.001 ±0.000 0.002 ±0.001 0.071 ±0.003
+IDDPG-BL 1.5 1.2 0.3 87.0 0.015 ±0.000 0.012 ±0.003 0.003 ±0.003 0.069 ±0.007
+MADDPG-BL 1.2 1.0 0.2 89.0 0.015 ±0.001 0.010 ±0.003 0.002 ±0.001 0.073 ±0.004
+COMA-BL 0.3 0.2 0.2 96.5 0.011 ±0.000 0.002 ±0.001 0.002 ±0.001 0.106 ±0.005
+IPPO-BL 4.6 0.1 4.5 65.4 0.015 ±0.001 0.001 ±0.001 0.045 ±0.008 0.154 ±0.013
+MAPPO-BL 3.8 0.1 3.7 70.6 0.014 ±0.001 0.001 ±0.001 0.037 ±0.006 0.150 ±0.008
+MATD3-BL 2.2 2.0 0.2 84.0 0.019 ±0.001 0.020 ±0.002 0.002 ±0.001 0.077 ±0.009
+SQDDPG-BL 1.8 1.1 0.7 85.4 0.016 ±0.001 0.011 ±0.005 0.007 ±0.002 0.072 ±0.007
+Table 4: The mean test results on the 141-bus network with 10 randomly selected episodes for MARL
+and 100 random selected episodes for the traditional control methods. The results are recorded with
+mean (±std.).
+METHOD % V. OUT OF CONTROL % V. BELOW % V. ABOVE % CR V. DEV. MAX V. DROP DEV. MAX V. RISE DEV. PL
+NO CONTROL 32.3 23.8 8.6 37.9 0.042 ±0.008 0.046 ±0.021 0.016 ±0.022 0.956 ±0.610
+DROOP CONTROL 0.0 0.0 0.0 100.0 0.009 ±0.002 0.014 ±0.003 0.003 ±0.004 1.519 ±1.335
+OPF 0.0 0.0 0.0 100.0 0.021 ±0.006 0.020 ±0.008 0.011 ±0.012 0.819 ±0.922
+IDDPG-L1 9.7 7.7 2.0 71.9 0.026 ±0.002 0.003 ±0.002 0.001 ±0.000 1.167 ±0.137
+MADDPG-L1 2.4 1.1 1.3 92.3 0.016 ±0.002 0.000 ±0.000 0.001 ±0.000 1.525 ±0.137
+COMA-L1 8.9 7.2 1.6 73.9 0.023 ±0.007 0.004 ±0.004 0.001 ±0.001 1.639 ±0.216
+IPPO-L1 13.8 0.0 13.8 77.3 0.026 ±0.002 0.000 ±0.000 0.011 ±0.002 1.380 ±0.061
+MAPPO-L1 16.0 0.1 15.9 74.6 0.028 ±0.002 0.000 ±0.000 0.013 ±0.002 1.465 ±0.069
+MATD3-L1 2.3 0.4 1.9 94.1 0.015 ±0.001 0.000 ±0.000 0.001 ±0.001 1.608 ±0.107
+SQDDPG-L1 1.8 0.7 1.0 96.0 0.015 ±0.001 0.001 ±0.000 0.001 ±0.000 1.757 ±0.064
+IDDPG-L2 26.0 20.1 5.9 49.3 0.038 ±0.003 0.008 ±0.002 0.004 ±0.001 0.966 ±0.085
+MADDPG-L2 12.6 9.3 3.3 68.9 0.028 ±0.002 0.003 ±0.001 0.002 ±0.000 1.007 ±0.098
+COMA-L2 26.6 16.1 10.5 41.4 0.038 ±0.005 0.016 ±0.011 0.012 ±0.005 1.989 ±0.369
+IPPO-L2 16.7 0.2 16.5 72.9 0.028 ±0.003 0.000 ±0.000 0.013 ±0.003 1.418 ±0.129
+MAPPO-L2 17.1 0.1 17.0 72.6 0.029 ±0.002 0.000 ±0.000 0.014 ±0.002 1.472 ±0.043
+MATD3-L2 14.6 11.3 3.3 63.9 0.030 ±0.003 0.004 ±0.001 0.002 ±0.001 0.954 ±0.063
+SQDDPG-L2 14.3 10.2 4.2 67.1 0.029 ±0.007 0.006 ±0.006 0.003 ±0.002 1.350 ±0.257
+IDDPG-BL 8.8 7.2 1.6 74.3 0.025 ±0.003 0.003 ±0.001 0.001 ±0.000 1.136 ±0.110
+MADDPG-BL 2.5 1.6 0.9 91.6 0.020 ±0.001 0.001 ±0.000 0.001 ±0.000 1.350 ±0.088
+COMA-BL 9.3 6.8 2.5 72.0 0.024 ±0.005 0.004 ±0.004 0.002 ±0.002 1.954 ±0.413
+IPPO-BL 17.5 0.1 17.4 72.2 0.029 ±0.002 0.000 ±0.000 0.014 ±0.003 1.450 ±0.052
+MAPPO-BL 15.8 0.1 15.7 75.0 0.028 ±0.003 0.000 ±0.000 0.013 ±0.003 1.500 ±0.133
+MATD3-BL 5.8 4.3 1.4 81.3 0.021 ±0.005 0.002 ±0.003 0.001 ±0.000 1.313 ±0.086
+SQDDPG-BL 2.9 1.5 1.5 92.1 0.016 ±0.001 0.001 ±0.000 0.001 ±0.000 1.720 ±0.235
+28
+Table 5: The mean test results on the 322-bus network with 10 randomly selected episodes for MARL
+and 100 random selected episodes for the traditional control methods. The results are recorded with
+mean (±std.).
+METHOD % V. OUT OF CONTROL % V. BELOW % V. ABOVE % CR V. DEV. MAX V. DROP DEV. MAX V. RISE DEV. PL
+NO CONTROL 18.2 15.6 2.5 32.1 0.032 ±0.006 0.052 ±0.013 0.028 ±0.035 0.038 ±0.017
+DROOP CONTROL 0.0 0.0 0.0 99.4 0.011 ±0.002 0.027 ±0.005 0.008 ±0.008 0.061 ±0.043
+OPF 5.0 4.6 0.3 86.8 0.015 ±0.008 0.026 ±0.010 0.018 ±0.014 0.057 ±0.036
+IDDPG-L1 6.1 1.5 4.6 36.7 0.018 ±0.002 0.007 ±0.004 0.015 ±0.006 0.109 ±0.013
+MADDPG-L1 2.3 0.1 2.2 77.7 0.013 ±0.001 0.000 ±0.000 0.009 ±0.002 0.070 ±0.007
+COMA-L1 4.7 0.2 4.5 56.6 0.017 ±0.002 0.000 ±0.000 0.016 ±0.004 0.091 ±0.008
+IPPO-L1 9.3 0.1 9.2 39.1 0.024 ±0.001 0.000 ±0.000 0.037 ±0.005 0.103 ±0.003
+MAPPO-L1 9.8 0.1 9.7 40.0 0.024 ±0.001 0.000 ±0.000 0.039 ±0.004 0.102 ±0.004
+MATD3-L1 3.2 1.3 1.9 64.8 0.015 ±0.001 0.004 ±0.003 0.008 ±0.002 0.078 ±0.007
+SQDDPG-L1 11.7 0.3 11.4 29.6 0.026 ±0.001 0.001 ±0.001 0.042 ±0.006 0.117 ±0.013
+IDDPG-L2 3.6 0.9 2.7 65.9 0.016 ±0.001 0.001 ±0.001 0.011 ±0.004 0.070 ±0.010
+MADDPG-L2 3.8 0.6 3.2 67.3 0.016 ±0.001 0.001 ±0.000 0.015 ±0.003 0.053 ±0.004
+COMA-L2 4.9 0.2 4.7 51.1 0.017 ±0.002 0.000 ±0.000 0.016 ±0.006 0.081 ±0.007
+IPPO-L2 9.1 0.1 9.0 39.7 0.024 ±0.001 0.000 ±0.000 0.036 ±0.004 0.103 ±0.004
+MAPPO-L2 10.0 0.1 9.9 40.5 0.024 ±0.002 0.000 ±0.000 0.040 ±0.006 0.100 ±0.007
+MATD3-L2 3.1 0.5 2.6 71.1 0.015 ±0.001 0.001 ±0.000 0.012 ±0.003 0.058 ±0.007
+SQDDPG-L2 9.1 0.3 8.8 44.0 0.023 ±0.001 0.000 ±0.000 0.036 ±0.004 0.097 ±0.007
+IDDPG-BL 4.7 1.1 3.6 40.9 0.017 ±0.003 0.005 ±0.005 0.012 ±0.004 0.128 ±0.024
+MADDPG-BL 3.2 0.9 2.3 67.7 0.016 ±0.001 0.001 ±0.001 0.011 ±0.005 0.065 ±0.008
+COMA-BL 5.7 0.2 5.5 43.2 0.017 ±0.001 0.001 ±0.001 0.018 ±0.004 0.098 ±0.010
+IPPO-BL 9.3 0.1 9.2 41.0 0.024 ±0.001 0.000 ±0.000 0.037 ±0.005 0.101 ±0.003
+MAPPO-BL 8.2 0.1 8.1 44.6 0.022 ±0.001 0.000 ±0.000 0.032 ±0.004 0.097 ±0.003
+MATD3-BL 2.8 0.8 2.0 68.1 0.016 ±0.001 0.001 ±0.001 0.010 ±0.003 0.074 ±0.006
+SQDDPG-BL 9.7 0.2 9.5 40.6 0.024 ±0.001 0.000 ±0.000 0.039 ±0.003 0.100 ±0.012
+29

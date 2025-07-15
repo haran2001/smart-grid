@@ -1,0 +1,610 @@
+{
+  "test_name": "extreme_weather_stress",
+  "start_time": "2025-07-13T21:31:13.706320",
+  "initial_state": {
+    "grid_operator": {
+      "messages_processed": 0,
+      "decisions_made": 0,
+      "last_update": 1752422473.70588,
+      "market_clearing_frequency": 0,
+      "average_clearing_price": 0.0,
+      "price_volatility": 0.0,
+      "frequency_stability_index": 100.0,
+      "voltage_stability_index": 100.0,
+      "frequency_violations": 0,
+      "voltage_violations": 0,
+      "total_system_cost": 0.0,
+      "renewable_penetration": 0,
+      "load_generation_balance": 0.0,
+      "registered_agents": 0,
+      "reserve_margin_mw": -400.0,
+      "carbon_intensity": 400.0
+    },
+    "solar_1": {
+      "messages_processed": 0,
+      "decisions_made": 0,
+      "last_update": 1752422473.706102,
+      "capacity_factor": 0.0,
+      "revenue_per_hour": 0.0,
+      "operating_cost_per_hour": 0.0,
+      "profit_per_hour": 0.0,
+      "emissions_per_hour": 0.0,
+      "online_time_percentage": 0.0,
+      "bid_success_rate": 0.0
+    },
+    "wind_1": {
+      "messages_processed": 0,
+      "decisions_made": 0,
+      "last_update": 1752422473.706108,
+      "capacity_factor": 0.0,
+      "revenue_per_hour": 0.0,
+      "operating_cost_per_hour": 0.0,
+      "profit_per_hour": 0.0,
+      "emissions_per_hour": 0.0,
+      "online_time_percentage": 0.0,
+      "bid_success_rate": 0.0
+    },
+    "gas_1": {
+      "messages_processed": 0,
+      "decisions_made": 0,
+      "last_update": 1752422473.706113,
+      "capacity_factor": 0.0,
+      "revenue_per_hour": 0.0,
+      "operating_cost_per_hour": 0.0,
+      "profit_per_hour": 0.0,
+      "emissions_per_hour": 0.0,
+      "online_time_percentage": 0.0,
+      "bid_success_rate": 0.0
+    },
+    "coal_1": {
+      "messages_processed": 0,
+      "decisions_made": 0,
+      "last_update": 1752422473.706117,
+      "capacity_factor": 0.0,
+      "revenue_per_hour": 0.0,
+      "operating_cost_per_hour": 0.0,
+      "profit_per_hour": 0.0,
+      "emissions_per_hour": 0.0,
+      "online_time_percentage": 0.0,
+      "bid_success_rate": 0.0
+    },
+    "battery_large": {
+      "messages_processed": 0,
+      "decisions_made": 0,
+      "last_update": 1752422473.706122,
+      "state_of_charge_percent": 50.0,
+      "total_cycles_completed": 0.0,
+      "net_revenue": 0.0,
+      "total_revenue": 0.0,
+      "total_degradation_cost": 0.0,
+      "round_trip_efficiency": 0.9,
+      "capacity_utilization": 0.0,
+      "arbitrage_efficiency": 0.0,
+      "price_volatility_captured": 0.0
+    },
+    "grid_system": {
+      "messages_processed": 0,
+      "decisions_made": 0,
+      "last_update": 1752422473.706127,
+      "market_clearing_frequency": 0,
+      "average_clearing_price": 0.0,
+      "price_volatility": 0.0,
+      "frequency_stability_index": 100.0,
+      "voltage_stability_index": 100.0,
+      "frequency_violations": 0,
+      "voltage_violations": 0,
+      "total_system_cost": 0.0,
+      "renewable_penetration": 0,
+      "load_generation_balance": 0.0,
+      "registered_agents": 0,
+      "reserve_margin_mw": -400.0,
+      "carbon_intensity": 400.0
+    },
+    "grid_status": {
+      "grid_state": {
+        "frequency_hz": 50.0,
+        "voltage_pu": 1.0,
+        "total_generation_mw": 0.0,
+        "total_load_mw": 0.0,
+        "renewable_generation_mw": 0.0,
+        "storage_charge_mw": 0.0,
+        "carbon_intensity": 400.0
+      },
+      "market_status": {
+        "last_clearing_time": "2025-07-13T21:31:13.685394",
+        "active_generation_bids": 0,
+        "active_dr_offers": 0,
+        "active_storage_bids": 0
+      },
+      "agent_registry": {
+        "total_agents": 0,
+        "agents_by_type": {
+          "generator": 0,
+          "storage": 0,
+          "consumer": 0,
+          "grid_operator": 0
+        }
+      },
+      "reliability_metrics": {
+        "saidi_minutes": 0.0,
+        "frequency_violations": 0,
+        "voltage_violations": 0,
+        "reserve_shortfalls": 0
+      },
+      "economic_metrics": {
+        "total_system_cost": 0.0,
+        "consumer_surplus": 0.0,
+        "producer_surplus": 0.0
+      }
+    },
+    "simulation": {
+      "total_steps": 576,
+      "messages_sent": 9224,
+      "market_clearings": 1,
+      "total_cost": 52187.5,
+      "renewable_penetration": 0.0,
+      "grid_stability_score": 100.0
+    },
+    "market_data": {
+      "current_price": 76.40303535458858,
+      "price_forecast": [
+        80.42491120179118,
+        85.8768488972781,
+        76.62192150251362,
+        75.3161694083383,
+        78.18470525444786,
+        73.6014600719419,
+        68.88047015013095,
+        94.9715169530347,
+        91.35789097281824,
+        85.943165300912,
+        79.06558127035056,
+        76.2050788614612,
+        66.47937132830619,
+        78.92318106280517,
+        82.08054615322287,
+        72.24582164009725,
+        83.02561049549344,
+        78.34237714439756,
+        84.5926585476579,
+        76.3791702953918,
+        64.98058179280088,
+        78.75999119987102,
+        71.5506709271279,
+        80.60366849171723
+      ],
+      "demand_forecast": {
+        "expected_peak": 1066.6761902332487
+      },
+      "generation_forecast": {
+        "total_available": 1500.0,
+        "renewable_total": 500.0
+      },
+      "weather": {
+        "temperature": 14.400153497042288,
+        "wind_speed": 8,
+        "solar_irradiance": 100
+      },
+      "carbon_price": 25.0,
+      "dr_price": 100.0,
+      "frequency_hz": 50.0,
+      "voltage_pu": 1.0
+    }
+  },
+  "metrics_timeline": [
+    {
+      "grid_operator": {
+        "messages_processed": 0,
+        "decisions_made": 0,
+        "last_update": 1752422473.706755,
+        "market_clearing_frequency": 0,
+        "average_clearing_price": 0.0,
+        "price_volatility": 0.0,
+        "frequency_stability_index": 100.0,
+        "voltage_stability_index": 100.0,
+        "frequency_violations": 0,
+        "voltage_violations": 0,
+        "total_system_cost": 0.0,
+        "renewable_penetration": 0,
+        "load_generation_balance": 0.0,
+        "registered_agents": 5,
+        "reserve_margin_mw": -400.0,
+        "carbon_intensity": 400.0
+      },
+      "solar_1": {
+        "messages_processed": 0,
+        "decisions_made": 0,
+        "last_update": 1752422473.706908,
+        "capacity_factor": 0.0,
+        "revenue_per_hour": 0.0,
+        "operating_cost_per_hour": 0.0,
+        "profit_per_hour": 0.0,
+        "emissions_per_hour": 0.0,
+        "online_time_percentage": 0.0,
+        "bid_success_rate": 0.0
+      },
+      "wind_1": {
+        "messages_processed": 0,
+        "decisions_made": 0,
+        "last_update": 1752422473.706911,
+        "capacity_factor": 0.0,
+        "revenue_per_hour": 0.0,
+        "operating_cost_per_hour": 0.0,
+        "profit_per_hour": 0.0,
+        "emissions_per_hour": 0.0,
+        "online_time_percentage": 0.0,
+        "bid_success_rate": 0.0
+      },
+      "gas_1": {
+        "messages_processed": 0,
+        "decisions_made": 0,
+        "last_update": 1752422473.706914,
+        "capacity_factor": 0.0,
+        "revenue_per_hour": 0.0,
+        "operating_cost_per_hour": 0.0,
+        "profit_per_hour": 0.0,
+        "emissions_per_hour": 0.0,
+        "online_time_percentage": 0.0,
+        "bid_success_rate": 0.0
+      },
+      "coal_1": {
+        "messages_processed": 0,
+        "decisions_made": 0,
+        "last_update": 1752422473.706916,
+        "capacity_factor": 0.0,
+        "revenue_per_hour": 0.0,
+        "operating_cost_per_hour": 0.0,
+        "profit_per_hour": 0.0,
+        "emissions_per_hour": 0.0,
+        "online_time_percentage": 0.0,
+        "bid_success_rate": 0.0
+      },
+      "battery_large": {
+        "messages_processed": 0,
+        "decisions_made": 0,
+        "last_update": 1752422473.706918,
+        "state_of_charge_percent": 50.0,
+        "total_cycles_completed": 0.0,
+        "net_revenue": 0.0,
+        "total_revenue": 0.0,
+        "total_degradation_cost": 0.0,
+        "round_trip_efficiency": 0.9,
+        "capacity_utilization": 0.0,
+        "arbitrage_efficiency": 0.0,
+        "price_volatility_captured": 0.0
+      },
+      "grid_system": {
+        "messages_processed": 0,
+        "decisions_made": 0,
+        "last_update": 1752422473.706921,
+        "market_clearing_frequency": 0,
+        "average_clearing_price": 0.0,
+        "price_volatility": 0.0,
+        "frequency_stability_index": 100.0,
+        "voltage_stability_index": 100.0,
+        "frequency_violations": 0,
+        "voltage_violations": 0,
+        "total_system_cost": 0.0,
+        "renewable_penetration": 0,
+        "load_generation_balance": 0.0,
+        "registered_agents": 5,
+        "reserve_margin_mw": -400.0,
+        "carbon_intensity": 400.0
+      },
+      "grid_status": {
+        "grid_state": {
+          "frequency_hz": 50.0,
+          "voltage_pu": 1.0,
+          "total_generation_mw": 0.0,
+          "total_load_mw": 0.0,
+          "renewable_generation_mw": 0.0,
+          "storage_charge_mw": 0.0,
+          "carbon_intensity": 400.0
+        },
+        "market_status": {
+          "last_clearing_time": "2025-07-13T21:31:13.685394",
+          "active_generation_bids": 0,
+          "active_dr_offers": 0,
+          "active_storage_bids": 0
+        },
+        "agent_registry": {
+          "total_agents": 5,
+          "agents_by_type": {
+            "generator": 4,
+            "storage": 1,
+            "consumer": 0,
+            "grid_operator": 0
+          }
+        },
+        "reliability_metrics": {
+          "saidi_minutes": 0.0,
+          "frequency_violations": 0,
+          "voltage_violations": 0,
+          "reserve_shortfalls": 0
+        },
+        "economic_metrics": {
+          "total_system_cost": 0.0,
+          "consumer_surplus": 0.0,
+          "producer_surplus": 0.0
+        }
+      },
+      "simulation": {
+        "total_steps": 576,
+        "messages_sent": 9224,
+        "market_clearings": 1,
+        "total_cost": 52187.5,
+        "renewable_penetration": 0.0,
+        "grid_stability_score": 100.0
+      },
+      "market_data": {
+        "current_price": 76.40303535458858,
+        "price_forecast": [
+          80.42491120179118,
+          85.8768488972781,
+          76.62192150251362,
+          75.3161694083383,
+          78.18470525444786,
+          73.6014600719419,
+          68.88047015013095,
+          94.9715169530347,
+          91.35789097281824,
+          85.943165300912,
+          79.06558127035056,
+          76.2050788614612,
+          66.47937132830619,
+          78.92318106280517,
+          82.08054615322287,
+          72.24582164009725,
+          83.02561049549344,
+          78.34237714439756,
+          84.5926585476579,
+          76.3791702953918,
+          64.98058179280088,
+          78.75999119987102,
+          71.5506709271279,
+          80.60366849171723
+        ],
+        "demand_forecast": {
+          "expected_peak": 1066.6761902332487
+        },
+        "generation_forecast": {
+          "total_available": 1500.0,
+          "renewable_total": 500.0
+        },
+        "weather": {
+          "temperature": 14.400153497042288,
+          "wind_speed": 8,
+          "solar_irradiance": 100
+        },
+        "carbon_price": 25.0,
+        "dr_price": 100.0,
+        "frequency_hz": 50.0,
+        "voltage_pu": 1.0
+      },
+      "timestamp": "2025-07-13T21:31:13.707175"
+    }
+  ],
+  "violations": [
+    {
+      "type": "reserve_shortage",
+      "value": 0.0,
+      "severity": "critical",
+      "timestamp": "2025-07-13T21:31:13.707179"
+    }
+  ],
+  "performance_summary": {},
+  "final_state": {
+    "grid_operator": {
+      "messages_processed": 581,
+      "decisions_made": 576,
+      "last_update": 1752422533.708658,
+      "market_clearing_frequency": 1,
+      "average_clearing_price": 208.75,
+      "price_volatility": 0.0,
+      "frequency_stability_index": 100.0,
+      "voltage_stability_index": 100.0,
+      "frequency_violations": 0,
+      "voltage_violations": 0,
+      "total_system_cost": 52187.5,
+      "renewable_penetration": 0.0,
+      "load_generation_balance": 250.0,
+      "registered_agents": 5,
+      "reserve_margin_mw": -400.0,
+      "carbon_intensity": 400.0
+    },
+    "solar_1": {
+      "messages_processed": 1724,
+      "decisions_made": 1,
+      "last_update": 1752422533.710013,
+      "capacity_factor": 0.0,
+      "revenue_per_hour": 0.0,
+      "operating_cost_per_hour": 0.0,
+      "profit_per_hour": 0.0,
+      "emissions_per_hour": 0.0,
+      "online_time_percentage": 0.0,
+      "bid_success_rate": 0.0
+    },
+    "wind_1": {
+      "messages_processed": 1723,
+      "decisions_made": 1,
+      "last_update": 1752422533.710049,
+      "capacity_factor": 0.0,
+      "revenue_per_hour": 0.0,
+      "operating_cost_per_hour": 0.0,
+      "profit_per_hour": 0.0,
+      "emissions_per_hour": 0.0,
+      "online_time_percentage": 0.0,
+      "bid_success_rate": 0.0
+    },
+    "gas_1": {
+      "messages_processed": 1724,
+      "decisions_made": 1,
+      "last_update": 1752422533.710065,
+      "capacity_factor": 0.0,
+      "revenue_per_hour": 0.0,
+      "operating_cost_per_hour": 0.0,
+      "profit_per_hour": 0.0,
+      "emissions_per_hour": 0.0,
+      "online_time_percentage": 0.0,
+      "bid_success_rate": 0.0
+    },
+    "coal_1": {
+      "messages_processed": 1724,
+      "decisions_made": 1,
+      "last_update": 1752422533.710082,
+      "capacity_factor": 0.0,
+      "revenue_per_hour": 0.0,
+      "operating_cost_per_hour": 0.0,
+      "profit_per_hour": 0.0,
+      "emissions_per_hour": 0.0,
+      "online_time_percentage": 0.0,
+      "bid_success_rate": 0.0
+    },
+    "battery_large": {
+      "messages_processed": 1723,
+      "decisions_made": 1,
+      "last_update": 1752422533.710105,
+      "state_of_charge_percent": 49.82420988380909,
+      "total_cycles_completed": 0.0017579011619091034,
+      "net_revenue": 0.0,
+      "total_revenue": 0.0,
+      "total_degradation_cost": 0.0,
+      "round_trip_efficiency": 0.9,
+      "capacity_utilization": 0.007031604647636414,
+      "arbitrage_efficiency": 0.0,
+      "price_volatility_captured": 0.0
+    },
+    "grid_system": {
+      "messages_processed": 581,
+      "decisions_made": 576,
+      "last_update": 1752422533.710201,
+      "market_clearing_frequency": 1,
+      "average_clearing_price": 208.75,
+      "price_volatility": 0.0,
+      "frequency_stability_index": 100.0,
+      "voltage_stability_index": 100.0,
+      "frequency_violations": 0,
+      "voltage_violations": 0,
+      "total_system_cost": 52187.5,
+      "renewable_penetration": 0.0,
+      "load_generation_balance": 250.0,
+      "registered_agents": 5,
+      "reserve_margin_mw": -400.0,
+      "carbon_intensity": 400.0
+    },
+    "grid_status": {
+      "grid_state": {
+        "frequency_hz": 50.008789505809546,
+        "voltage_pu": 0.9973847725330467,
+        "total_generation_mw": 250.0,
+        "total_load_mw": 0.0,
+        "renewable_generation_mw": 0.0,
+        "storage_charge_mw": -0.8789505809545517,
+        "carbon_intensity": 400.0
+      },
+      "market_status": {
+        "last_clearing_time": "2025-07-13T21:31:13.717935",
+        "active_generation_bids": 0,
+        "active_dr_offers": 0,
+        "active_storage_bids": 0
+      },
+      "agent_registry": {
+        "total_agents": 5,
+        "agents_by_type": {
+          "generator": 4,
+          "storage": 1,
+          "consumer": 0,
+          "grid_operator": 0
+        }
+      },
+      "reliability_metrics": {
+        "saidi_minutes": 0.0,
+        "frequency_violations": 0,
+        "voltage_violations": 0,
+        "reserve_shortfalls": 0
+      },
+      "economic_metrics": {
+        "total_system_cost": 52187.5,
+        "consumer_surplus": 0.0,
+        "producer_surplus": 0.0
+      }
+    },
+    "simulation": {
+      "total_steps": 576,
+      "messages_sent": 9224,
+      "market_clearings": 1,
+      "total_cost": 52187.5,
+      "renewable_penetration": 0.0,
+      "grid_stability_score": 100.0
+    },
+    "market_data": {
+      "current_price": 76.40303535458858,
+      "price_forecast": [
+        80.42491120179118,
+        85.8768488972781,
+        76.62192150251362,
+        75.3161694083383,
+        78.18470525444786,
+        73.6014600719419,
+        68.88047015013095,
+        94.9715169530347,
+        91.35789097281824,
+        85.943165300912,
+        79.06558127035056,
+        76.2050788614612,
+        66.47937132830619,
+        78.92318106280517,
+        82.08054615322287,
+        72.24582164009725,
+        83.02561049549344,
+        78.34237714439756,
+        84.5926585476579,
+        76.3791702953918,
+        64.98058179280088,
+        78.75999119987102,
+        71.5506709271279,
+        80.60366849171723
+      ],
+      "demand_forecast": {
+        "expected_peak": 1066.6761902332487
+      },
+      "generation_forecast": {
+        "total_available": 1500.0,
+        "renewable_total": 500.0
+      },
+      "weather": {
+        "temperature": 14.400153497042288,
+        "wind_speed": 8,
+        "solar_irradiance": 100
+      },
+      "carbon_price": 25.0,
+      "dr_price": 100.0,
+      "frequency_hz": 50.0,
+      "voltage_pu": 1.0
+    }
+  },
+  "end_time": "2025-07-13T21:32:13.710791",
+  "performance_analysis": {
+    "stability_metrics": {
+      "frequency_std": 0,
+      "voltage_std": 0,
+      "frequency_violations": 0,
+      "voltage_violations": 0
+    },
+    "economic_metrics": {
+      "average_price": 0,
+      "price_volatility": 0,
+      "total_cost": 0
+    },
+    "renewable_metrics": {
+      "average_penetration": 0,
+      "curtailment_events": 0,
+      "storage_utilization": 0
+    },
+    "reliability_metrics": {
+      "total_violations": 1,
+      "critical_violations": 1,
+      "system_recovery_time": 5.0
+    }
+  }
+}
