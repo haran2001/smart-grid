@@ -26,6 +26,13 @@ def print_banner():
     print("📚 Based on 'The AI Economist' curriculum MARL approach")
     print("🎯 Target: 0% → 50-70% renewable penetration")
     print("⚡ Neural Networks: DQN, Actor-Critic, MADDPG")
+    print("")
+    print("🚀 Available modes:")
+    print("   • demo:   Quick demo (2 minutes)")
+    print("   • quick:  Validation test (< 10 minutes) - NEW!")
+    print("   • full:   Research training (hours)")
+    print("   • debug:  Debug utilities")
+    print("   • results: View past results")
     print("=" * 70)
 
 async def run_demo_curriculum():
@@ -66,6 +73,39 @@ async def run_full_curriculum():
             print(f"📊 Final performance: {result.get('final_performance', 'N/A')}")
         else:
             print("\n❌ Full training failed - check logs above")
+        
+        return result
+    except ImportError as e:
+        print(f"\n❌ Import error: {e}")
+        print("Make sure all dependencies are installed")
+        return None
+
+async def run_quick_test():
+    """Run quick curriculum test to validate approach"""
+    print("\n⚡ Running QUICK Curriculum Test")
+    print("   • Validation test (< 10 minutes)")
+    print("   • 5% → 50% renewable penetration")
+    print("   • 200 training steps total")
+    print("   • Before/after performance comparison")
+    
+    # Import and run quick test
+    try:
+        from curriculum_training import run_quick_curriculum_test
+        result = await run_quick_curriculum_test()
+        
+        if result:
+            assessment = result.get('assessment', 'unknown')
+            if assessment == 'positive':
+                print(f"\n✅ Quick test shows POSITIVE results!")
+                print("📈 Curriculum approach is working - proceed with full training")
+            elif assessment == 'marginal':
+                print(f"\n🟡 Quick test shows MARGINAL improvement")
+                print("🔧 Consider parameter tuning before full training")
+            else:
+                print(f"\n❌ Quick test shows NO improvement")
+                print("🛠️ May need different approach or debugging")
+        else:
+            print("\n❌ Quick test failed - check logs above")
         
         return result
     except ImportError as e:
@@ -156,6 +196,7 @@ async def main():
         epilog="""
 Examples:
   python run_curriculum.py --mode demo     # Quick demo (2 minutes)
+  python run_curriculum.py --mode quick    # Quick test (< 10 minutes)
   python run_curriculum.py --mode full     # Full training (hours)
   python run_curriculum.py --mode debug    # Debug mode
   python run_curriculum.py --mode results  # Show past results
@@ -164,7 +205,7 @@ Examples:
     
     parser.add_argument(
         '--mode', 
-        choices=['demo', 'full', 'debug', 'results'],
+        choices=['demo', 'quick', 'full', 'debug', 'results'],
         default='demo',
         help='Training mode to run (default: demo)'
     )
@@ -178,6 +219,8 @@ Examples:
     
     if args.mode == 'demo':
         await run_demo_curriculum()
+    elif args.mode == 'quick':
+        await run_quick_test()
     elif args.mode == 'full':
         await run_full_curriculum()
     elif args.mode == 'debug':

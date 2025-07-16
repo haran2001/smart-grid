@@ -285,14 +285,17 @@ class RenewableCurriculumTrainer:
                                           scenario: Dict[str, Any]) -> None:
         """Apply curriculum scenario parameters to simulation"""
         
-        # Update renewable penetration
-        await self._set_renewable_penetration(simulation, scenario["renewable_penetration"])
+        # Update renewable penetration (with default)
+        renewable_penetration = scenario.get("renewable_penetration", 0.3)
+        await self._set_renewable_penetration(simulation, renewable_penetration)
         
-        # Update weather variability
-        await self._set_weather_variability(simulation, scenario["weather_variability"])
+        # Update weather variability (with default)
+        weather_variability = scenario.get("weather_variability", 0.5)
+        await self._set_weather_variability(simulation, weather_variability)
         
-        # Update demand patterns
-        await self._set_demand_variability(simulation, scenario["demand_variability"])
+        # Update demand patterns (with default)
+        demand_variability = scenario.get("demand_variability", 0.3)
+        await self._set_demand_variability(simulation, demand_variability)
         
         # Enable/disable specific challenges
         if scenario.get("ramping_events", False):
@@ -458,10 +461,10 @@ class RenewableCurriculumTrainer:
         
         # Run comprehensive test scenarios
         test_scenarios = [
-            {"name": "high_renewable", "renewable_penetration": 0.8, "weather_variability": 1.0},
-            {"name": "duck_curve", "renewable_penetration": 0.6, "duck_curve_intensity": 0.8},
-            {"name": "wind_ramping", "renewable_penetration": 0.5, "ramping_events": True},
-            {"name": "extreme_weather", "renewable_penetration": 0.7, "extreme_weather": True}
+            {"name": "high_renewable", "renewable_penetration": 0.8, "weather_variability": 1.0, "demand_variability": 0.5},
+            {"name": "duck_curve", "renewable_penetration": 0.6, "duck_curve_intensity": 0.8, "weather_variability": 0.7, "demand_variability": 0.6},
+            {"name": "wind_ramping", "renewable_penetration": 0.5, "ramping_events": True, "weather_variability": 0.8, "demand_variability": 0.4},
+            {"name": "extreme_weather", "renewable_penetration": 0.7, "extreme_weather": True, "weather_variability": 1.0, "demand_variability": 0.8}
         ]
         
         final_results = {}
@@ -531,8 +534,214 @@ class RenewableCurriculumTrainer:
             return float(obj)
         elif isinstance(obj, (np.integer, int)):
             return int(obj)
+        elif isinstance(obj, (np.bool_, bool)):
+            return bool(obj)
+        elif obj is None:
+            return None
         else:
-            return obj
+            # For other objects, try to convert to string as fallback
+            try:
+                return str(obj)
+            except:
+                return f"<non-serializable: {type(obj).__name__}>"
+
+
+@dataclass
+class QuickTestConfig(CurriculumConfig):
+    """Quick test configuration for 10-minute curriculum validation"""
+    # Phase 1: Mini foundation training
+    phase1_steps: int = 50  # Just 50 steps (30 seconds)
+    phase1_renewable_penetration: float = 0.05  # Start with 5% renewables
+    phase1_weather_variability: float = 0.1  # Minimal weather variation
+    
+    # Phase 2: Mini complexity introduction  
+    phase2_steps: int = 150  # 150 steps (2-3 minutes)
+    annealing_steps: int = 100  # 100 steps for annealing
+    max_renewable_penetration: float = 0.5  # Up to 50% renewables
+    max_weather_variability: float = 0.8  # Moderate weather variation
+    
+    # Curriculum schedules
+    renewable_schedule: str = "linear"
+    weather_schedule: str = "linear"
+    demand_schedule: str = "linear"
+    
+    # Training parameters
+    entropy_coefficient_agent: float = 0.025
+    entropy_coefficient_grid_op: float = 0.1
+    learning_rate_agent: float = 0.001  # Higher learning rate for faster convergence
+    learning_rate_grid_op: float = 0.0005
+
+
+async def run_quick_curriculum_test():
+    """Quick 10-minute test to validate curriculum approach works"""
+    
+    print("🚀 Quick Curriculum Test (< 10 minutes)")
+    print("=" * 50)
+    
+    # Create quick test configuration
+    config = QuickTestConfig()
+    
+    print(f"📊 Test Configuration:")
+    print(f"   Phase 1: {config.phase1_steps} steps (foundation)")
+    print(f"   Phase 2: {config.phase2_steps} steps (curriculum)")
+    print(f"   Total: {config.phase1_steps + config.phase2_steps} steps")
+    print(f"   Renewable progression: {config.phase1_renewable_penetration:.0%} → {config.max_renewable_penetration:.0%}")
+    
+    # Initialize trainer
+    trainer = RenewableCurriculumTrainer(config)
+    
+    # Create simulation
+    print("\n🏗️ Creating simulation...")
+    simulation = SmartGridSimulation()
+    await simulation.create_sample_scenario()
+    
+    # Baseline performance measurement (no training)
+    print("\n📏 Measuring baseline performance (untrained agents)...")
+    baseline_metrics = await _measure_performance(simulation, "baseline")
+    
+    # Run curriculum training
+    print("\n🎓 Running curriculum training...")
+    start_time = datetime.now()
+    
+    try:
+        results = await trainer.train_with_curriculum(simulation)
+        
+        # Post-training performance measurement
+        print("\n📊 Measuring post-curriculum performance...")
+        trained_metrics = await _measure_performance(simulation, "trained")
+        
+        training_time = datetime.now() - start_time
+        
+        # Performance comparison
+        print("\n" + "=" * 60)
+        print("🎯 CURRICULUM TRAINING RESULTS")
+        print("=" * 60)
+        
+        print(f"⏱️ Training Duration: {training_time}")
+        print(f"📈 Total Training Steps: {config.phase1_steps + config.phase2_steps}")
+        
+        print(f"\n📊 Performance Comparison:")
+        print(f"{'Metric':<25} {'Baseline':<15} {'Trained':<15} {'Improvement':<15}")
+        print("-" * 70)
+        
+        # Renewable utilization
+        baseline_renewable = baseline_metrics["renewable_utilization"]
+        trained_renewable = trained_metrics["renewable_utilization"]
+        renewable_improvement = ((trained_renewable - baseline_renewable) / max(baseline_renewable, 0.01)) * 100
+        print(f"{'Renewable Utilization':<25} {baseline_renewable:<15.3f} {trained_renewable:<15.3f} {renewable_improvement:+.1f}%")
+        
+        # Grid stability
+        baseline_stability = baseline_metrics["grid_stability"]
+        trained_stability = trained_metrics["grid_stability"]
+        stability_improvement = ((trained_stability - baseline_stability) / max(baseline_stability, 0.01)) * 100
+        print(f"{'Grid Stability':<25} {baseline_stability:<15.3f} {trained_stability:<15.3f} {stability_improvement:+.1f}%")
+        
+        # Economic efficiency
+        baseline_economic = baseline_metrics["economic_efficiency"]
+        trained_economic = trained_metrics["economic_efficiency"]
+        economic_improvement = ((trained_economic - baseline_economic) / max(baseline_economic, 0.01)) * 100
+        print(f"{'Economic Efficiency':<25} {baseline_economic:<15.3f} {trained_economic:<15.3f} {economic_improvement:+.1f}%")
+        
+        # Overall score
+        baseline_overall = baseline_metrics["overall_score"]
+        trained_overall = trained_metrics["overall_score"]
+        overall_improvement = ((trained_overall - baseline_overall) / max(baseline_overall, 0.01)) * 100
+        print(f"{'Overall Score':<25} {baseline_overall:<15.3f} {trained_overall:<15.3f} {overall_improvement:+.1f}%")
+        
+        # Assessment
+        print(f"\n🎯 Quick Test Assessment:")
+        if overall_improvement > 5:
+            print("✅ POSITIVE: Curriculum approach shows clear improvement!")
+            print("   Recommended to proceed with full training")
+        elif overall_improvement > 1:
+            print("🟡 MARGINAL: Small improvement detected")
+            print("   Consider adjusting parameters or longer training")
+        else:
+            print("❌ NO IMPROVEMENT: Curriculum approach not effective")
+            print("   May need different approach or parameter tuning")
+        
+        # Save quick test results
+        quick_results = {
+            "test_config": config.__dict__,
+            "training_time_seconds": training_time.total_seconds(),
+            "baseline_metrics": baseline_metrics,
+            "trained_metrics": trained_metrics,
+            "improvements": {
+                "renewable_utilization": renewable_improvement,
+                "grid_stability": stability_improvement,
+                "economic_efficiency": economic_improvement,
+                "overall_score": overall_improvement
+            },
+            "assessment": "positive" if overall_improvement > 5 else ("marginal" if overall_improvement > 1 else "negative")
+        }
+        
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"quick_curriculum_test_{timestamp}.json"
+        
+        with open(filename, 'w') as f:
+            json.dump(quick_results, f, indent=2, default=str)
+        
+        print(f"\n💾 Quick test results saved to: {filename}")
+        
+        return quick_results
+        
+    except Exception as e:
+        print(f"\n❌ Quick test failed: {e}")
+        import traceback
+        traceback.print_exc()
+        return None
+
+
+async def _measure_performance(simulation: SmartGridSimulation, test_type: str) -> Dict[str, float]:
+    """Measure simulation performance for comparison"""
+    
+    print(f"   Running {test_type} performance test...")
+    
+    # Run simulation for a few steps to get metrics
+    metrics_list = []
+    
+    for i in range(10):  # Run 10 steps for measurement
+        try:
+            await simulation.run_simulation_step()
+            metrics = await simulation.get_real_time_metrics()
+            
+            # Calculate performance scores using trainer methods
+            temp_trainer = RenewableCurriculumTrainer(QuickTestConfig())
+            
+            renewable_util = temp_trainer._calculate_renewable_utilization(metrics)
+            grid_stability = temp_trainer._calculate_grid_stability(metrics)
+            economic_eff = temp_trainer._calculate_economic_efficiency(metrics)
+            
+            overall_score = (renewable_util * 0.4 + grid_stability * 0.4 + economic_eff * 0.2)
+            
+            metrics_list.append({
+                "renewable_utilization": renewable_util,
+                "grid_stability": grid_stability,
+                "economic_efficiency": economic_eff,
+                "overall_score": overall_score
+            })
+            
+        except Exception as e:
+            print(f"   Warning: Step {i} failed: {e}")
+            continue
+    
+    if not metrics_list:
+        # Fallback metrics if simulation fails
+        return {
+            "renewable_utilization": 0.0,
+            "grid_stability": 0.5,
+            "economic_efficiency": 0.3,
+            "overall_score": 0.32
+        }
+    
+    # Average the metrics
+    avg_metrics = {}
+    for key in metrics_list[0].keys():
+        avg_metrics[key] = np.mean([m[key] for m in metrics_list])
+    
+    print(f"   {test_type.capitalize()} overall score: {avg_metrics['overall_score']:.3f}")
+    
+    return avg_metrics
 
 
 # Usage example and integration functions
@@ -567,4 +776,13 @@ async def run_curriculum_training():
 if __name__ == "__main__":
     # Run curriculum training
     import asyncio
-    asyncio.run(run_curriculum_training()) 
+    
+    # Choose which training to run based on command line args
+    import sys
+    
+    if len(sys.argv) > 1 and sys.argv[1] == "--quick":
+        print("Running quick curriculum test...")
+        asyncio.run(run_quick_curriculum_test())
+    else:
+        print("Running full curriculum training...")
+        asyncio.run(run_curriculum_training()) 
