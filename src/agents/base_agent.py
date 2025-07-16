@@ -1,9 +1,10 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 from dataclasses import dataclass, field
 from datetime import datetime
 import uuid
 import asyncio
+import queue
 import json
 from enum import Enum
 from langchain_core.messages import BaseMessage
@@ -76,7 +77,7 @@ class BaseAgent(ABC):
                 self._message_queue = queue.Queue()
         return self._message_queue
     
-    def _build_decision_graph(self) -> StateGraph:
+    def _build_decision_graph(self):
         """Build the LangGraph decision-making workflow"""
         graph = StateGraph(AgentState)
         
@@ -204,6 +205,7 @@ class BaseAgent(ABC):
             MessageType.GENERATION_FORECAST: self._handle_generation_forecast,
             MessageType.MARKET_PRICE_UPDATE: self._handle_market_price_update,
             MessageType.WEATHER_UPDATE: self._handle_weather_update,
+            MessageType.STATUS_UPDATE: self._handle_status_update,
         }
         
         handler = handler_map.get(message.message_type)
@@ -225,6 +227,64 @@ class BaseAgent(ABC):
     async def _handle_weather_update(self, message: AgentMessage) -> None:
         """Handle weather forecast updates"""
         self.state.market_data["weather"] = message.content
+
+    async def _handle_status_update(self, message: AgentMessage) -> None:
+        """Handle status update messages - default implementation"""
+        # Update any general status information
+        content = message.content
+        
+        # Check if this is a bid request
+        request_type = content.get("request_type")
+        if request_type:
+            # This is likely a bid request - subclasses should override to handle specifically
+            print(f"[{self.agent_id}] Received {request_type} request from {message.sender_id}")
+            
+            # CRITICAL FIX: Ensure state is properly formatted for neural network
+            try:
+                if isinstance(self.state, dict):
+                    # Convert dict back to AgentState (LangGraph converts AgentState -> dict)
+                    agent_state = AgentState(
+                        agent_id=self.agent_id,
+                        agent_type=self.agent_type,
+                        current_timestamp=datetime.now(),
+                        market_data=self.state.get('market_data', {}),
+                        operational_status=self.state.get('operational_status', {}),
+                        messages=self.state.get('messages', []),
+                        decisions=self.state.get('decisions', []),
+                        performance_metrics=self.state.get('performance_metrics', {})
+                    )
+                    self.state = agent_state
+                
+                # Now use the proper neural network decision making
+                decision = await self.make_strategic_decision(self.state)
+                await self.execute_decision(decision)
+                print(f"[{self.agent_id}] Made neural network decision for {request_type}")
+            except Exception as e:
+                print(f"[{self.agent_id}] Neural network decision failed for {request_type}: {e}")
+                # Only in case of failure, log the issue but don't create fallback bids
+                print(f"[{self.agent_id}] Agent {self.agent_type} cannot participate in {request_type}")
+        
+        # Store the status update in market data - handle both AgentState and dict cases
+        if hasattr(self.state, 'market_data'):
+            # AgentState object
+            if "status_updates" not in self.state.market_data:
+                self.state.market_data["status_updates"] = []
+            self.state.market_data["status_updates"].append({
+                "timestamp": datetime.now().isoformat(),
+                "sender": message.sender_id,
+                "content": content
+            })
+        elif isinstance(self.state, dict):
+            # Dict state
+            if 'market_data' not in self.state:
+                self.state['market_data'] = {}
+            if "status_updates" not in self.state['market_data']:
+                self.state['market_data']["status_updates"] = []
+            self.state['market_data']["status_updates"].append({
+                "timestamp": datetime.now().isoformat(),
+                "sender": message.sender_id,
+                "content": content
+            }) 
     
     async def send_message(self, receiver_id: str, message_type: MessageType, 
                           content: Dict[str, Any], priority: int = 1) -> None:

@@ -6,11 +6,11 @@ import json
 import numpy as np
 from collections import defaultdict
 
-from ..agents.base_agent import BaseAgent, AgentType, AgentMessage, MessageType
-from ..agents.generator_agent import GeneratorAgent
-from ..agents.storage_agent import StorageAgent
-from ..agents.consumer_agent import ConsumerAgent
-from ..agents.grid_operator_agent import GridOperatorAgent
+from src.agents.base_agent import BaseAgent, AgentType, AgentMessage, MessageType
+from src.agents.generator_agent import GeneratorAgent
+from src.agents.storage_agent import StorageAgent
+from src.agents.consumer_agent import ConsumerAgent
+from src.agents.grid_operator_agent import GridOperatorAgent
 
 
 class MessageRouter:

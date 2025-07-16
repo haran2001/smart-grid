@@ -12,7 +12,7 @@ from typing import Dict, Any, List
 from datetime import datetime
 import logging
 
-from renewable_stress_tests import RenewableStressTestFramework, StressTestConfig
+from .renewable_stress_tests import RenewableStressTestFramework, StressTestConfig
 import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))

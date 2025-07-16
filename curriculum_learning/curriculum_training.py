@@ -11,17 +11,22 @@ import asyncio
 import numpy as np
 import torch
 import logging
+import sys
+import os
 from typing import Dict, Any, List, Tuple, Optional
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 import json
 
-from .pre_training import AgentPreTrainer
-from .generator_agent import GeneratorAgent
-from .storage_agent import StorageAgent
-from .consumer_agent import ConsumerAgent
-from .grid_operator_agent import GridOperatorAgent
-from ..coordination.multi_agent_system import SmartGridSimulation
+# Add parent directory to path for imports
+sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
+
+from src.agents.pre_training import AgentPreTrainer
+from src.agents.generator_agent import GeneratorAgent
+from src.agents.storage_agent import StorageAgent
+from src.agents.consumer_agent import ConsumerAgent
+from src.agents.grid_operator_agent import GridOperatorAgent
+from src.coordination.multi_agent_system import SmartGridSimulation
 
 
 @dataclass
@@ -203,6 +208,10 @@ class RenewableCurriculumTrainer:
             # Run training step
             step_results = await simulation.run_simulation_step()
             
+            # ✅ ACTUAL RL TRAINING: Call agent learning methods
+            if step_results:
+                await self._train_agents_from_results(simulation, step_results)
+            
             # Record metrics every 10,000 steps
             if step % 10_000 == 0:
                 metrics = await self._collect_training_metrics(simulation, scenario, step)
@@ -226,6 +235,51 @@ class RenewableCurriculumTrainer:
             )
         
         return phase_metrics
+    
+    async def _train_agents_from_results(self, simulation: SmartGridSimulation, 
+                                       step_results: Dict[str, Any]) -> None:
+        """Call actual RL training for each agent after simulation step"""
+        
+        market_result = step_results.get("market_result", {})
+        
+        for agent_id, agent in simulation.agents.items():
+            if hasattr(agent, 'learn_from_market_result'):
+                try:
+                    if isinstance(agent, GeneratorAgent):
+                        # DQN training for generators
+                        agent.learn_from_market_result(market_result)
+                    elif isinstance(agent, StorageAgent):
+                        # Actor-Critic training for storage
+                        agent.learn_from_market_result(market_result)
+                    elif isinstance(agent, ConsumerAgent):
+                        # MADDPG training for consumers (needs other agent actions)
+                        other_actions = self._get_other_agent_actions(simulation, agent_id)
+                        agent.learn_from_market_result(market_result, other_actions)
+                    
+                    self.logger.debug(f"Trained agent {agent_id} from market result")
+                except Exception as e:
+                    self.logger.warning(f"Failed to train agent {agent_id}: {e}")
+    
+    def _get_other_agent_actions(self, simulation: SmartGridSimulation, 
+                               current_agent_id: str) -> List[np.ndarray]:
+        """Get actions from other agents for MADDPG training"""
+        
+        other_actions = []
+        for agent_id, agent in simulation.agents.items():
+            if agent_id != current_agent_id and hasattr(agent, 'current_action'):
+                # Get the agent's last action if available
+                current_action = getattr(agent, 'current_action', None)
+                if current_action is not None:
+                    other_actions.append(current_action)
+                else:
+                    # Create dummy action if no action recorded
+                    other_actions.append(np.random.rand(4))
+        
+        # Ensure we have at least 2 other agent actions for MADDPG
+        while len(other_actions) < 2:
+            other_actions.append(np.random.rand(4))
+        
+        return other_actions[:2]  # Return max 2 other agents
     
     async def _apply_scenario_to_simulation(self, simulation: SmartGridSimulation, 
                                           scenario: Dict[str, Any]) -> None:
@@ -286,7 +340,9 @@ class RenewableCurriculumTrainer:
             "cloud_frequency": 0.3 * variability
         }
         
-        # Apply to simulation market data
+        # Apply to simulation market data (ensure market_data exists)
+        if not hasattr(simulation, 'market_data') or simulation.market_data is None:
+            simulation.market_data = {}
         simulation.market_data["weather_variability"] = weather_params
     
     async def _set_demand_variability(self, simulation: SmartGridSimulation, 
@@ -300,7 +356,9 @@ class RenewableCurriculumTrainer:
             "peak_demand_std": 0.2 * variability
         }
         
-        # Apply to simulation market data
+        # Apply to simulation market data (ensure market_data exists)
+        if not hasattr(simulation, 'market_data') or simulation.market_data is None:
+            simulation.market_data = {}
         simulation.market_data["demand_variability"] = demand_params
     
     async def _enable_ramping_events(self, simulation: SmartGridSimulation) -> None:
