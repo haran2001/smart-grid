@@ -1,0 +1,98 @@
+{
+  "Agent Creation": {
+    "passed": false,
+    "total_agents": 10,
+    "operational_agents": 9,
+    "generators": 4,
+    "storage": 2,
+    "consumers": 3,
+    "issue": "Agents not properly created"
+  },
+  "Bidding Behavior": {
+    "passed": true,
+    "decision_capable": 9,
+    "total_agents": 9,
+    "capability_rate": 1.0,
+    "issue": null
+  },
+  "Market Clearing": {
+    "passed": false,
+    "success_rate": 0.0,
+    "successful_clearings": 0,
+    "total_steps": 3,
+    "avg_price": -1,
+    "renewable_dispatch": false,
+    "market_operations": [],
+    "issue": "Market clearing success rate too low: 0.0%"
+  },
+  "Reward Signals": {
+    "passed": true,
+    "valid_rewards": 4,
+    "zero_rewards": 0,
+    "issue": null
+  },
+  "Neural Network Learning": {
+    "passed": true,
+    "learnable_agents": 9,
+    "learning_capable_agents": 9,
+    "learning_rate": 1.0,
+    "learning_detected": true,
+    "training_steps": 10,
+    "issue": null
+  },
+  "Renewable Dispatch": {
+    "passed": false,
+    "criteria_met": 0,
+    "total_criteria": 4,
+    "success_rate": 0.0,
+    "total_renewable_output": 0.0,
+    "max_renewable_output": 0.0,
+    "avg_renewable_share": 0.0,
+    "steps_with_activity": 0,
+    "price_signals": 0,
+    "dispatch_evidence": [
+      {
+        "step": 1,
+        "renewable_output_mw": 0.0,
+        "renewable_share": 0.0,
+        "active_renewables": 0,
+        "total_output_mw": 0.0
+      },
+      {
+        "step": 2,
+        "renewable_output_mw": 0.0,
+        "renewable_share": 0.0,
+        "active_renewables": 0,
+        "total_output_mw": 0.0
+      },
+      {
+        "step": 3,
+        "renewable_output_mw": 0.0,
+        "renewable_share": 0.0,
+        "active_renewables": 0,
+        "total_output_mw": 0.0
+      },
+      {
+        "step": 4,
+        "renewable_output_mw": 0.0,
+        "renewable_share": 0.0,
+        "active_renewables": 0,
+        "total_output_mw": 0.0
+      },
+      {
+        "step": 5,
+        "renewable_output_mw": 0.0,
+        "renewable_share": 0.0,
+        "active_renewables": 0,
+        "total_output_mw": 0.0
+      }
+    ],
+    "issue": "Only 0/4 dispatch criteria met"
+  },
+  "State Information": {
+    "passed": true,
+    "valid_states": 9,
+    "invalid_states": 0,
+    "issue": null
+  }
+}

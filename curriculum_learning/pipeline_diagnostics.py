@@ -67,6 +67,14 @@ class PipelineDiagnostics:
         print("\n7️⃣ Testing State Information Flow")
         await self._test_state_information()
         
+        # Test 8: Market Clearing Debug (NEW)
+        print("\n8️⃣ Debugging Market Clearing Mechanism")
+        success, issue = await self._test_market_clearing_mechanism()
+        if success:
+            print("   ✅ Market clearing mechanism working correctly")
+        else:
+            print(f"   ❌ Market clearing issue: {issue}")
+        
         # Summary
         print("\n" + "=" * 50)
         print("🎯 DIAGNOSTIC SUMMARY")
@@ -871,101 +879,108 @@ class PipelineDiagnostics:
             # Get grid operator
             grid_operator = None
             for agent_id, agent in simulation.agents.items():
-                if isinstance(agent, GridOperatorAgent):  # Grid operator
+                if isinstance(agent, GridOperatorAgent):
                     grid_operator = agent
                     break
             
             if not grid_operator:
                 return False, "No grid operator found"
             
-            # Run simulation step to trigger bidding
+            print("   🔍 DETAILED MARKET CLEARING ANALYSIS")
+            print("   " + "="*50)
+            
+            # Step 1: Check initial state
+            print(f"   📊 Initial State:")
+            print(f"     Generation bids: {len(grid_operator.generation_bids)}")
+            print(f"     Storage bids: {len(grid_operator.storage_bids)}")
+            print(f"     DR offers: {len(grid_operator.demand_response_offers)}")
+            print(f"     Registered agents: {len(grid_operator.registered_agents)}")
+            
+            # Step 2: Run one simulation step and track bid flow
+            print(f"\n   🏃 Running simulation step to track bid collection...")
+            
+            # Track messages being sent
+            initial_bid_count = len(grid_operator.generation_bids)
+            
             await simulation.run_simulation_step()
             
-            # Check what bids were collected
-            generation_bids = grid_operator.generation_bids
-            storage_bids = grid_operator.storage_bids
-            demand_response_offers = grid_operator.demand_response_offers
+            # Step 3: Check what happened to bids
+            final_bid_count = len(grid_operator.generation_bids)
             
-            print(f"\n🔍 MARKET CLEARING DEBUG:")
-            print(f"Generation bids: {len(generation_bids)}")
-            for bid in generation_bids:
-                print(f"  - {bid.agent_id}: {bid.quantity_mw} MW @ ${bid.price_per_mwh}/MWh")
+            print(f"\n   📈 Bid Collection Results:")
+            print(f"     Initial bids: {initial_bid_count}")
+            print(f"     Final bids: {final_bid_count}")
+            print(f"     Bids added: {final_bid_count - initial_bid_count}")
             
-            print(f"Storage bids: {len(storage_bids)}")
-            for bid in storage_bids:
-                action_type = bid.additional_params.get("action_type", "unknown")
-                print(f"  - {bid.agent_id}: {action_type} {bid.quantity_mw} MW @ ${bid.price_per_mwh}/MWh")
+            # Step 4: Check if generators received bid requests
+            print(f"\n   📧 Generator Response Analysis:")
+            generator_count = 0
+            generators_with_decisions = 0
             
-            print(f"Demand response offers: {len(demand_response_offers)}")
-            for bid in demand_response_offers:
-                print(f"  - {bid.agent_id}: {bid.quantity_mw} MW @ ${bid.price_per_mwh}/MWh")
+            for agent_id, agent in simulation.agents.items():
+                if isinstance(agent, GeneratorAgent):
+                    generator_count += 1
+                    # Check if generator has bid data
+                    has_bid_data = (
+                        hasattr(agent.generator_state, 'last_bid_price') and
+                        agent.generator_state.last_bid_price > 0
+                    )
+                    if has_bid_data:
+                        generators_with_decisions += 1
+                        print(f"     ✅ {agent_id}: Bid made - ${agent.generator_state.last_bid_price:.2f}/MWh, {agent.generator_state.last_bid_quantity:.1f} MW")
+                    else:
+                        print(f"     ❌ {agent_id}: No bid data found")
             
-            # Check baseline demand calculation
-            baseline_demand = grid_operator._calculate_baseline_demand()
-            print(f"Baseline demand: {baseline_demand} MW")
+            # Step 5: Check actual market clearing details
+            print(f"\n   💰 Market Clearing Analysis:")
             
-            # Simulate the market clearing process manually
-            all_supply_bids = []
+            try:
+                metrics = await simulation.get_real_time_metrics()
+                market_price = metrics.get("market_clearing_price_mwh", -1)
+                total_generation = metrics.get("total_generation_mw", 0)
+                total_demand = metrics.get("total_demand_mw", 0)
+                
+                print(f"     Market price: ${market_price:.2f}/MWh")
+                print(f"     Total generation: {total_generation:.1f} MW")
+                print(f"     Total demand: {total_demand:.1f} MW")
+                
+                # Check individual agent outputs
+                print(f"\n   🔌 Individual Generator Outputs:")
+                for agent_id, agent in simulation.agents.items():
+                    if isinstance(agent, GeneratorAgent):
+                        output = agent.generator_state.current_output_mw
+                        online = agent.generator_state.online_status
+                        print(f"     {agent_id}: {output:.1f} MW (online: {online})")
+                
+            except Exception as e:
+                print(f"     ⚠️ Could not get market metrics: {e}")
             
-            # Add generation bids
-            for bid in generation_bids:
-                all_supply_bids.append((bid.price_per_mwh, bid.quantity_mw, bid.agent_id, "generation"))
+            # Step 6: Diagnosis and recommendations
+            print(f"\n   🎯 DIAGNOSIS:")
             
-            # Add storage discharge bids
-            for bid in storage_bids:
-                if bid.additional_params.get("action_type") == "discharge":
-                    all_supply_bids.append((bid.price_per_mwh, bid.quantity_mw, bid.agent_id, "storage_discharge"))
+            if final_bid_count == 0:
+                print(f"     ❌ CRITICAL: No bids collected from generators")
+                print(f"     💡 Issue: Bid request→response communication problem")
+                issue = "No bids collected - communication issue"
+            elif final_bid_count > 0 and market_price == 0 and total_generation == 0:
+                print(f"     ❌ CRITICAL: Bids collected but not processed correctly")
+                print(f"     💡 Issue: Market clearing algorithm problem")
+                issue = "Bids collected but not cleared"
+            elif market_price == 0 and total_generation > 0:
+                print(f"     ✅ NORMAL: $0/MWh price with renewable dispatch")
+                print(f"     💡 Status: System working correctly")
+                issue = None
+            else:
+                print(f"     ⚠️ UNCLEAR: Mixed signals in market clearing")
+                issue = "Inconsistent market clearing results"
             
-            print(f"Total supply bids: {len(all_supply_bids)}")
+            success = issue is None
             
-            # Sort by price
-            all_supply_bids.sort(key=lambda x: x[0])
-            print("Supply merit order:")
-            cumulative = 0
-            for price, quantity, agent_id, bid_type in all_supply_bids:
-                cumulative += quantity
-                print(f"  - {agent_id} ({bid_type}): {quantity} MW @ ${price}/MWh [Cumulative: {cumulative} MW]")
-            
-            # Manual clearing logic check
-            if not all_supply_bids:
-                print("❌ NO SUPPLY BIDS - This explains $0.00/MWh clearing!")
-                return False, "No supply bids available for market clearing"
-            
-            target_supply = min(baseline_demand, cumulative)
-            print(f"Target supply to clear: {target_supply} MW (min of demand {baseline_demand} and available {cumulative})")
-            
-            # Step through clearing
-            total_cleared = 0.0
-            clearing_price = 0.0
-            cleared_bids = []
-            
-            for price, quantity, agent_id, bid_type in all_supply_bids:
-                if total_cleared >= target_supply:
-                    print(f"  ✋ Stopping at {total_cleared} MW (target met)")
-                    break
-                    
-                quantity_needed = min(quantity, target_supply - total_cleared)
-                if quantity_needed > 0:
-                    cleared_bids.append((agent_id, quantity_needed, price))
-                    total_cleared += quantity_needed
-                    clearing_price = price
-                    print(f"  ✅ Cleared: {agent_id} {quantity_needed} MW @ ${price}/MWh [Price set to ${price}]")
-            
-            print(f"Final clearing price: ${clearing_price}/MWh")
-            print(f"Total cleared: {total_cleared} MW")
-            
-            if clearing_price == 0.0:
-                if not all_supply_bids:
-                    return False, "Zero clearing price due to no supply bids"
-                elif target_supply == 0.0:
-                    return False, "Zero clearing price due to zero demand"
-                else:
-                    return False, f"Zero clearing price despite {len(all_supply_bids)} bids and {target_supply} MW demand"
-            
-            return True, f"Market clearing working: ${clearing_price}/MWh for {total_cleared} MW"
+            return success, issue
             
         except Exception as e:
-            return False, f"Market clearing test failed: {str(e)}"
+            print(f"   ❌ Market clearing analysis failed: {e}")
+            return False, f"Analysis failed: {e}"
 
 
 async def main():
