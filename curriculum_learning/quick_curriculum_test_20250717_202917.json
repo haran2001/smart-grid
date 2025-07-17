@@ -1,0 +1,38 @@
+{
+  "test_config": {
+    "phase1_steps": 300,
+    "phase1_renewable_penetration": 0.1,
+    "phase1_weather_variability": 0.2,
+    "phase2_steps": 700,
+    "annealing_steps": 500,
+    "max_renewable_penetration": 0.7,
+    "max_weather_variability": 0.9,
+    "renewable_schedule": "exponential",
+    "weather_schedule": "linear",
+    "demand_schedule": "exponential",
+    "entropy_coefficient_agent": 0.05,
+    "entropy_coefficient_grid_op": 0.15,
+    "learning_rate_agent": 0.005,
+    "learning_rate_grid_op": 0.002
+  },
+  "training_time_seconds": 936.231955,
+  "baseline_metrics": {
+    "renewable_utilization": 0.0,
+    "grid_stability": 1.0,
+    "economic_efficiency": 0.0,
+    "overall_score": 0.4
+  },
+  "trained_metrics": {
+    "renewable_utilization": 0.0,
+    "grid_stability": 1.0,
+    "economic_efficiency": 0.0,
+    "overall_score": 0.4
+  },
+  "improvements": {
+    "renewable_utilization": 0.0,
+    "grid_stability": 0.0,
+    "economic_efficiency": 0.0,
+    "overall_score": 0.0
+  },
+  "assessment": "negative"
+}

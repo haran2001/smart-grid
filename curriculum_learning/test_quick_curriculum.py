@@ -21,11 +21,13 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 async def main():
     """Run quick curriculum validation test"""
     
-    print("🧪 Quick Curriculum Validation Test")
-    print("=" * 45)
+    print("🧪 Quick Curriculum Validation Test - IMPROVED VERSION")
+    print("=" * 55)
     print("⏱️ Estimated time: < 10 minutes")
     print("🎯 Goal: Verify curriculum approach works")
     print("📊 Measures: Before/after performance comparison")
+    print("⚡ 1000 training steps (5x more aggressive)")
+    print("🚀 Higher learning rates for faster convergence")
     print("")
     
     try:

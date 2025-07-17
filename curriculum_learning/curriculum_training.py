@@ -548,28 +548,28 @@ class RenewableCurriculumTrainer:
 
 @dataclass
 class QuickTestConfig(CurriculumConfig):
-    """Quick test configuration for 10-minute curriculum validation"""
-    # Phase 1: Mini foundation training
-    phase1_steps: int = 50  # Just 50 steps (30 seconds)
-    phase1_renewable_penetration: float = 0.05  # Start with 5% renewables
-    phase1_weather_variability: float = 0.1  # Minimal weather variation
+    """Quick test configuration for 10-minute curriculum validation - IMPROVED VERSION"""
+    # Phase 1: Foundation training with more steps
+    phase1_steps: int = 300  # Increased from 50 to 300 steps
+    phase1_renewable_penetration: float = 0.10  # Start with 10% renewables (more meaningful baseline)
+    phase1_weather_variability: float = 0.2  # Slightly more variation for learning
     
-    # Phase 2: Mini complexity introduction  
-    phase2_steps: int = 150  # 150 steps (2-3 minutes)
-    annealing_steps: int = 100  # 100 steps for annealing
-    max_renewable_penetration: float = 0.5  # Up to 50% renewables
-    max_weather_variability: float = 0.8  # Moderate weather variation
+    # Phase 2: Aggressive curriculum introduction  
+    phase2_steps: int = 700  # Increased from 150 to 700 steps
+    annealing_steps: int = 500  # More gradual annealing
+    max_renewable_penetration: float = 0.70  # More aggressive target (70% vs 50%)
+    max_weather_variability: float = 0.9  # Higher weather variation
     
     # Curriculum schedules
-    renewable_schedule: str = "linear"
+    renewable_schedule: str = "exponential"  # Exponential for faster early progress
     weather_schedule: str = "linear"
-    demand_schedule: str = "linear"
+    demand_schedule: str = "exponential"  # More aggressive demand variation
     
-    # Training parameters
-    entropy_coefficient_agent: float = 0.025
-    entropy_coefficient_grid_op: float = 0.1
-    learning_rate_agent: float = 0.001  # Higher learning rate for faster convergence
-    learning_rate_grid_op: float = 0.0005
+    # Training parameters - MUCH more aggressive for quick convergence
+    entropy_coefficient_agent: float = 0.05  # Higher exploration
+    entropy_coefficient_grid_op: float = 0.15  # More grid operator exploration
+    learning_rate_agent: float = 0.005  # 5x higher learning rate
+    learning_rate_grid_op: float = 0.002  # 4x higher learning rate
 
 
 async def run_quick_curriculum_test():
@@ -586,6 +586,8 @@ async def run_quick_curriculum_test():
     print(f"   Phase 2: {config.phase2_steps} steps (curriculum)")
     print(f"   Total: {config.phase1_steps + config.phase2_steps} steps")
     print(f"   Renewable progression: {config.phase1_renewable_penetration:.0%} → {config.max_renewable_penetration:.0%}")
+    print(f"   Learning rates: Agent={config.learning_rate_agent}, Grid={config.learning_rate_grid_op}")
+    print(f"   Expected: Should show marginal improvement with these aggressive settings")
     
     # Initialize trainer
     trainer = RenewableCurriculumTrainer(config)

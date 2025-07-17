@@ -29,7 +29,7 @@ def print_banner():
     print("")
     print("🚀 Available modes:")
     print("   • demo:   Quick demo (2 minutes)")
-    print("   • quick:  Validation test (< 10 minutes) - NEW!")
+    print("   • quick:  Improved validation test (< 10 minutes) - 1000 steps!")
     print("   • full:   Research training (hours)")
     print("   • debug:  Debug utilities")
     print("   • results: View past results")
@@ -82,10 +82,11 @@ async def run_full_curriculum():
 
 async def run_quick_test():
     """Run quick curriculum test to validate approach"""
-    print("\n⚡ Running QUICK Curriculum Test")
+    print("\n⚡ Running IMPROVED QUICK Curriculum Test")
     print("   • Validation test (< 10 minutes)")
-    print("   • 5% → 50% renewable penetration")
-    print("   • 200 training steps total")
+    print("   • 10% → 70% renewable penetration")
+    print("   • 1000 training steps total (5x more aggressive)")
+    print("   • Higher learning rates for faster convergence")
     print("   • Before/after performance comparison")
     
     # Import and run quick test

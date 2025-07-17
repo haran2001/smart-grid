@@ -1,0 +1,45 @@
+{
+  "Agent Creation": {
+    "passed": false,
+    "total_agents": 10,
+    "nn_initialized": 9,
+    "issue": "Neural networks not properly initialized"
+  },
+  "Bidding Behavior": {
+    "passed": false,
+    "varying_bids": 0,
+    "static_bids": 4,
+    "issue": "All agents submit static bids"
+  },
+  "Market Clearing": {
+    "passed": false,
+    "renewable_dispatched": 0,
+    "total_renewable_output": 0.0,
+    "market_price": 0,
+    "issue": "Renewables not dispatched even with $1/MWh bids"
+  },
+  "Reward Signals": {
+    "passed": false,
+    "valid_rewards": 0,
+    "zero_rewards": 4,
+    "issue": "All agents receive zero rewards"
+  },
+  "Neural Network Learning": {
+    "passed": false,
+    "params_changed": 0,
+    "params_static": 6,
+    "issue": "No neural network parameters changed during training"
+  },
+  "Renewable Dispatch": {
+    "passed": "False",
+    "avg_utilization": 0.0,
+    "max_utilization": 0.0,
+    "issue": "Renewable agents never dispatched despite competitive bids"
+  },
+  "State Information": {
+    "passed": false,
+    "valid_states": 0,
+    "invalid_states": 6,
+    "issue": "Most agents lack proper state information"
+  }
+}
